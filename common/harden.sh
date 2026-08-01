@@ -33,6 +33,22 @@ sudo systemctl restart sshd &> /dev/null
 
 # Network hardening / firewall.
 
+pkg_install nftables
+
+sudo systemctl enable --now nftables &> /dev/null
+
+if [[ ! sudo grep "table inet filter" etc/nftables.conf ]]; then
+    sudo nft add table inet filter &> /dev/null
+    sudo nft add chain inet filter input { type filter hook input priority 0 \; policy drop \; } &> /dev/null
+    sudo nft add rule inet filter input iif "lo" accept &> /dev/null
+    sudo nft add rule inet filter input ct state established,related accept &> /dev/null
+    sudo nft add rule inet filter input tcp dport 2307 accept &> /dev/null
+    sudo nft add rule inet filter input ip protocol icmp accept &> /dev/null
+    sudo nft add rule inet filter input ip6 nexthdr icmpv6 accept &> /dev/null
+
+    sudo nft -f /etc/nftables.conf &> /dev/null
+fi
+
 
 # Logging and Time.
 
