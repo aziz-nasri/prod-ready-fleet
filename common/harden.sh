@@ -9,7 +9,10 @@ trap trap_cleanup EXIT
 # System upadte
 sudo apt upadate &> /dev/null
 pkg_install unattended-upgrades
-sudo dpkg-reconfigure -plow unattended-upgrades
+sudo dpkg-reconfigure -plow unattended-upgrades &> /dev/null
+ # keeping time accurate
+pkg_install chrony
+sudo systemctl enable --now chrony &> /dev/null
 
 # Minimazing the attack surface.
  # remove unused packages
@@ -31,7 +34,7 @@ sudo sed -i 's/^#\?Port 22.*/Port 2307/' /etc/ssh/sshd_config &> /dev/null
 sudo systemctl restart sshd &> /dev/null
 
 
-# Network hardening / firewall.
+# Firewall.
 
 pkg_install nftables
 
@@ -48,11 +51,3 @@ if [[ ! sudo grep "table inet filter" etc/nftables.conf ]]; then
 
     sudo nft -f /etc/nftables.conf &> /dev/null
 fi
-
-
-# Logging and Time.
-
-
-# File Permissions
-
-

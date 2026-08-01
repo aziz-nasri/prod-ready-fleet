@@ -125,7 +125,7 @@ Then re-check Step 3.1 before retrying. a missing or malformed authorized_keys f
 
 **Automatd equivament:** common/harden.sh
 
-## Section 4: Firewall and Network hardening
+## Section 4: Firewall
 
 **Applies to:**  all servers 
 
@@ -182,6 +182,78 @@ Run the following commands:
 or write the rules manually in " /etc/nftables.conf "
 
 **Automated equivalent:** common/harden.sh
+
+## Section 5: File ownership/permission 
+
+### 5.1 Difine the correct baseline
+
+Define what the baseline for system ownership and permission. 
+
+focus on those high impact areas:
+
+| Location | expected ownership & mode |
+| ----------- | ----------- |
+| /etc/passwd, /etc/shadow, /etc/group, /etc/gshadow| root:root 644 / 000 / 644 / 000|
+| /etc/ssh/| root:root, keys 600, config 644|
+|/etc/sudoers + /etc/sudoers.d/|root:root 440|
+|/boot, /lib, /usr, /bin, /sbin|root:root|
+|/var/log/|root:root or root:adm / syslog|
+|Cron files (/etc/cron*, /var/spool/cron)|root:root 600/700|
+|Web roots, application configs|Application user + restricted group|
+|TLS keys, secrets, .env files|root or service user, mode 600|
+|/home/*|user:user 750 or 700|
+
+### 5.2 audit current state
+
+Find world-writable files (very dangerous)
+
+`find / -xdev -type f -perm -0002 -ls 2>/dev/null`
+
+Find world-writable directories
+
+`find / -xdev -type d -perm -0002 -ls 2>/dev/null`
+
+Find SUID/SGID binaries
+
+`find / -xdev \( -perm -4000 -o -perm -2000 \) -type f -ls 2>/dev/null`
+
+Check ownership of critical files
+
+`ls -l /etc/passwd /etc/shadow /etc/sudoers /etc/ssh/sshd_config`
+
+Check for files not owned by root in system directories
+
+`find /bin /sbin /usr/bin /usr/sbin /lib /lib64 -xdev ! -user root -ls 2>/dev/null`
+
+### 5.3 Remediate systematically
+Fix the highest-risk items first (shadow, sudoers, SSH keys, world-writable files).
+
+Restore package-default permissions where possible:
+
+`sudo apt install --reinstall <package>`
+
+
+## Section 6: Future improvments
+
+### Mandatory acess control
+SELinux (enforcing)
+
+### Cryptography
+Appling strong algorithms only
+
+Keeping certificates currrent
+
+### Disk Encryption
+Full-disk or volume encryption where feasible (especially for sensitive data)
+
+### Brute-force Protection
+Fail2ban (or equivalent) for SSH and other exposed services
+
+### Configuration Managment tools
+
+using tools like Ansible, Puppet, Chef to enforce permessions and ownership.
+
+
 
 
 
