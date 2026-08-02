@@ -65,3 +65,7 @@ if [[ ! sudo grep "table inet filter" etc/nftables.conf ]]; then
 
     sudo nft -f /etc/nftables.conf &> /dev/null
 fi
+
+# Installing dnsmasq
+sudo apt install dsnmasq -y &> /dev/nul
+sudo systemctl enable --now dnsmasq &> /dev/nul
