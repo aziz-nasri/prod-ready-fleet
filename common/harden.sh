@@ -12,7 +12,9 @@ ask_add_job(){
         echo "Do you want to add a cron job to update the system every week [y/n]?"
         read ANS
         if [[ ${ANS^^} -eq "Y" ]]; then
-            [[ sudo grep system_update /etc/crontab ]] || sudo echo "0 2 * * 0 admin /usr/bin/system_update.sh" >> /etc/crontab;;
+            if [[ -n $(sudo grep -q system_update /etc/crontab) ]]; then
+                sudo echo "0 2 * * 0 admin /usr/bin/system_update.sh" >> /etc/crontab;
+            fi
         fi
     done
     sudo mv system_update.sh /usr/bin/ &> /dev/null
@@ -54,7 +56,7 @@ pkg_install nftables
 
 sudo systemctl enable --now nftables &> /dev/null
 
-if [[ ! sudo grep "table inet filter" etc/nftables.conf ]]; then
+if [[ -n $(sudo grep "table inet filter" etc/nftables.conf) ]]; then
     sudo nft add table inet filter &> /dev/null
     sudo nft add chain inet filter input { type filter hook input priority 0 \; policy drop \; } &> /dev/null
     sudo nft add rule inet filter input iif "lo" accept &> /dev/null
