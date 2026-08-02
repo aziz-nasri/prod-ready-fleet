@@ -2,7 +2,7 @@
 
 set -euo pipefail 
 source $1     # takes the user configuration file as argument
-source "$(dirname "$0")/../../common/lib.sh"
+source "$(dirname "$0")/lib.sh"
 require_root
 trap trap_cleanup EXIT
 

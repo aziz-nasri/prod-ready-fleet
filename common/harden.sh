@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
-source "$(dirname "$0")/../../common/lib.sh"
+source "$(dirname "$0")/lib.sh"
 require_root
 check_connectivity
 trap trap_cleanup EXIT
