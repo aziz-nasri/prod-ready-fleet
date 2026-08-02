@@ -1,4 +1,4 @@
-## Section 1: System Upadte
+## Section 1: System Update
 
 **Applies to**: All servers
 
@@ -24,7 +24,7 @@ run this occasionally
 
 `sudo apt upgrade`
 
-**Automated equivalent:** common/system_update.sh (it runs a system update every week.)
+**Automated equivalent:** common/harden.sh (it runs a system update every week.)
 
 ## Section 2: Minimazing the attack surface.
 **Applies to**: All servers

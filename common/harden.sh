@@ -6,10 +6,24 @@ require_root
 check_connectivity
 trap trap_cleanup EXIT
 
+ask_add_job(){
+    local ANS="."
+    while [[ ${ANS^^} -ne "Y" || ${ANS^^} -ne "N" ]]; do 
+        echo "Do you want to add a cron job to update the system every week [y/n]?"
+        read ANS
+        if [[ ${ANS^^} -eq "Y" ]]; then
+            [[ sudo grep system_update /etc/crontab ]] || sudo echo "0 2 * * 0 admin /usr/bin/system_update.sh" >> /etc/crontab;;
+        fi
+    done
+    sudo mv system_update.sh /usr/bin/ &> /dev/null
+}
+
 # System upadte
 sudo apt upadate &> /dev/null
 pkg_install unattended-upgrades
 sudo dpkg-reconfigure -plow unattended-upgrades &> /dev/null
+ # adding cron job for automatic system unpdate
+ask_add_job
  # keeping time accurate
 pkg_install chrony
 sudo systemctl enable --now chrony &> /dev/null
