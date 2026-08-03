@@ -1,0 +1,377 @@
+## Section 1: System Update
+
+**Applies to**: All servers
+
+**Risk level**: Modetrate - a mistake here could lunch a system update in an unwanted time potentially slowing the server or forcing a reboot.
+
+### 1.1 Install the unattended-upgrades
+Install this package to automatically install security updates.
+
+`sudo apt update`
+
+`sudo apt install unattended-upgrades`
+
+`sudo dpkg-reconfigure -plow unattended-upgrades`
+
+### 1.2 Edit the configuration file.
+You can edit configurations in /etc/apt/apt.conf.d/50unattended-upgrades. by default it only install security updates. you can configure it to remove unused dependencies, automatic reboot, Email notification and packages blacklist.
+
+### 1.3 Update the system occasionally.
+why: hakers could exploit installed softwares vunrabilites.
+run this occasionally
+
+`sudo apt upadate`
+
+`sudo apt upgrade`
+
+**Automated equivalent:** common/harden.sh (it runs a system update every week.)
+
+## Section 2: Minimazing the attack surface.
+**Applies to**: All servers
+
+### 2.1 Remove unused packages.
+why: hakers could exploit installed softwares vunrabilites.
+run this to remove unused packages
+
+`sudo apt autoremove --purge`
+
+`sudo apt clean`
+
+**Automatd equivament:** common/harden.sh
+
+### 2.2 Disable/stop unnecessary services (daemons)
+why: unecessary backgroud running services could be potentially exploited by hakers.
+
+**setp 1:** 
+Check all the services and all the running services. find any services you don't recognize or you don't need.
+
+Currently running services
+
+`systemctl list-units --type=service --state=running`
+
+All installed services (enabled + disabled)
+
+`systemctl list-unit-files --type=service`
+
+**setp 2:**
+Investigate the service.
+
+`sudo systemctl status servicename` 
+
+**step 3:**
+Disable and stop the service.
+
+`sudo systemctl stop service name`
+
+`sudo systemctl disalbe --now servicename`
+
+## Section 3: SSH Hardening
+
+**Applies to:** All servers
+
+**Risk level:** High a mistake here can lock you out of the server. Do not close your current SSH session until Step 3.4 is verified.
+
+### 3.1 Confirm your SSH key is already installed
+Before disabling password login, verify your public key is already present on the server.
+
+`cat ~/.ssh/authorized_keys`
+
+**Expected output:** one line starting with ssh-ed25519 or ssh-rsa, ending in your key comment (e.g. you@laptop).
+**Red flag:** empty file or "No such file or directory". do not proceed until this is fixed.
+
+### 2.2 Disable password authentication, root login and non-standard port.
+
+**Why:** password auth is brute-forceable; direct root login removes your audit trail (you can't tell which admin logged in as root).
+
+`sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.$(date +%s)`
+
+`sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config`
+
+`sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config`
+
+`sudo sed -i 's/^#\?Port 22.*/Port 2307/' /etc/ssh/sshd_config`
+
+A backup of the original config is made automatically before editing, in case you need to revert.
+
+### 3.3 Restart the SSH service
+
+`sudo systemctl restart sshd`
+
+Do not log out yet.
+
+### 3.4 Verify in a NEW terminal window (keep your current session open)
+
+`ssh -i ~/.ssh/id_ed25519 youruser@<server-ip>`
+
+**Expected:** you connect successfully using your key, no password prompt.
+**Red flag:** connection refused or password prompt still appears. do not close your original session. Go to Rollback below.
+
+### 3.5 Confirm root login is blocked
+
+`ssh root@<server-ip>`
+
+**Expected:** Permission denied (publickey).
+This confirms root login is disabled and only key-based, non-root access works.
+
+**Rollback (if Step 3.4 fails)**
+
+From your still-open original session:
+
+`sudo cp /etc/ssh/sshd_config.bak.<timestamp> /etc/ssh/sshd_config`
+
+`sudo systemctl restart sshd`
+
+Then re-check Step 3.1 before retrying. a missing or malformed authorized_keys file is the most common cause of failure here.
+
+**Automatd equivament:** common/harden.sh
+
+## Section 4: Firewall
+
+**Applies to:**  all servers 
+
+**Risk level:** moderate - high, Attackers could more easily discover and exploit open services or vulnerabilities, potentially leading to unauthorized access, data breaches, or system compromise.
+
+### 4.1 install the nftable package
+nftables is the modern Linux packet filtering and classification framework.
+
+`sudo apt install nftables`
+
+and enable it
+
+`sudo systemctl enable --now nftables`
+
+### 4.2 Check if any rules are applied
+run:
+
+`nft list ruleset`
+
+or check the " /etc/nftables.conf " file
+
+You can clear any rules by running:
+
+`nft flush ruleset`   (use it carefully.)
+
+### 4.3 Add the default inboud deny rule
+
+run:
+
+`sudo nft add table inet filter`  (To create a table.)
+
+`sudo nft add chain inet filter input { type filter hook input priority 0 \; policy drop \; }`  (add the rule.)
+
+### 4.4 Allow loopback, established and related connections, SSH and IMCP.
+**why:** necessary connections for the functionality of the server.
+
+Run the following commands:
+
+` sudo nft add rule inet filter input iif "lo" accept`  (Allow loopback)
+
+`sudo nft add rule inet filter input ct state established,related accept`  (Allow established and related connections)
+
+`sudo nft add rule inet filter input tcp dport [your ssh port] accept`  (Allow ssh)
+
+`sudo nft add rule inet filter input ip protocol icmp accept`  (Allow IMCP)
+
+`sudo nft add rule inet filter input ip6 nexthdr icmpv6 accept`  (Allow IMCPv6)
+
+### 4.5 Load the ruleset so it became persistent
+**why**: persistent when rebooting. the rules stay after rebooting the system.
+
+`sudo nft -f /etc/nftables.conf`
+
+or write the rules manually in " /etc/nftables.conf "
+
+**Automated equivalent:** common/harden.sh
+
+## Section 5: File ownership/permission 
+
+### 5.1 Difine the correct baseline
+
+Define what the baseline for system ownership and permission. 
+
+focus on those high impact areas:
+
+| Location | expected ownership & mode |
+| ----------- | ----------- |
+| /etc/passwd, /etc/shadow, /etc/group, /etc/gshadow| root:root 644 / 000 / 644 / 000|
+| /etc/ssh/| root:root, keys 600, config 644|
+|/etc/sudoers + /etc/sudoers.d/|root:root 440|
+|/boot, /lib, /usr, /bin, /sbin|root:root|
+|/var/log/|root:root or root:adm / syslog|
+|Cron files (/etc/cron*, /var/spool/cron)|root:root 600/700|
+|Web roots, application configs|Application user + restricted group|
+|TLS keys, secrets, .env files|root or service user, mode 600|
+|/home/*|user:user 750 or 700|
+
+### 5.2 audit current state
+
+Find world-writable files (very dangerous)
+
+`find / -xdev -type f -perm -0002 -ls 2>/dev/null`
+
+Find world-writable directories
+
+`find / -xdev -type d -perm -0002 -ls 2>/dev/null`
+
+Find SUID/SGID binaries
+
+`find / -xdev \( -perm -4000 -o -perm -2000 \) -type f -ls 2>/dev/null`
+
+Check ownership of critical files
+
+`ls -l /etc/passwd /etc/shadow /etc/sudoers /etc/ssh/sshd_config`
+
+Check for files not owned by root in system directories
+
+`find /bin /sbin /usr/bin /usr/sbin /lib /lib64 -xdev ! -user root -ls 2>/dev/null`
+
+### 5.3 Remediate systematically
+Fix the highest-risk items first (shadow, sudoers, SSH keys, world-writable files).
+
+Restore package-default permissions where possible:
+
+`sudo apt install --reinstall <package>`
+
+## Section 6: Application Server Hardening (srv2)
+
+**Applies to:** srv2 (app server) only
+Risk level: Moderate misconfiguring the firewall step can cut off the proxy's access to the app; verify from srv1 before moving on.
+
+### 6.1 Create a dedicated non-root service account
+
+**Why:** if the app process is ever compromised, it should not have root privileges on the box.
+
+`sudo useradd -r -s /usr/sbin/nologin -d /opt/app appuser`
+
+`sudo mkdir -p /opt/app`
+
+`sudo chown -R appuser:appuser /opt/app`
+
+**Verify:**
+
+`id appuser`
+
+**Expected:** user exists, shell is /usr/sbin/nologin (cannot be used for interactive login).
+
+### 6.2 Bind the app to the internal interface only
+
+**Why:** the app must be unreachable except through the proxy. Binding to 0.0.0.0 exposes it on every interface, including any future public one.
+
+Edit the app's config/env file so it listens on the internal NIC's IP (e.g. 10.0.20.20) or 127.0.0.1 if the proxy connects via a local tunnel, not 0.0.0.0.
+
+**Verify:**
+
+`sudo ss -tlnp | grep 8080`
+
+**Expected:** listening address is 10.0.20.20:8080, not 0.0.0.0:8080.
+Red flag: 0.0.0.0:8080 — the app is reachable from anywhere on the internal network, not just the proxy.
+
+### 6.3 Restrict the local firewall to the proxy's IP only
+
+**Why:** even on the internal network, only srv1 has a reason to reach this port.
+
+`sudo nft add rule inet filter input ip saddr 10.0.20.10 tcp dport 8080 accept`
+
+`sudo nft add rule inet filter input tcp dport 8080 drop`
+
+(Replace 10.0.20.10 with srv1's actual internal IP.)
+
+**Verify from srv1:**
+
+`curl -m 3 http://10.0.20.20:8080/health`
+
+**Expected:** successful response.
+
+**Verify from srv3** (should fail it has no legitimate reason to reach the app port):
+
+`curl -m 3 http://10.0.20.20:8080/health`
+
+**Expected:** connection timeout or refused.
+
+### 6.4 Secure the environment/config file
+
+**Why:** this file holds config and possibly secrets (DB credentials, API keys) it should be unreadable by anyone but the app itself.
+
+`sudo chown appuser:appuser /opt/app/.env`
+
+`sudo chmod 600 /opt/app/.env`
+
+**Verify:**
+
+`ls -l /opt/app/.env`
+
+**Expected:** -rw------- 1 appuser appuser.
+
+### 6.5 Disable debug mode
+
+**Why:** debug modes commonly expose stack traces, environment variables, or admin endpoints a serious information leak if the box is ever probed.
+
+Check the app's config for a DEBUG or ENV flag and confirm it's set to false / production.
+
+**Verify:** request a deliberately invalid endpoint and confirm no stack trace or internal path is returned in the response.
+
+### 6.6 Configure the systemd unit with resource limits and auto-restart
+
+```
+# /etc/systemd/system/app.service
+[Unit]
+Description=Application server
+After=network.target
+
+[Service]
+User=appuser
+Group=appuser
+WorkingDirectory=/opt/app
+EnvironmentFile=/opt/app/.env
+ExecStart=/opt/app/bin/start
+Restart=on-failure
+MemoryMax=512M
+TasksMax=100
+
+[Install]
+WantedBy=multi-user.target
+```
+`sudo systemctl daemon-reload`
+
+`sudo systemctl enable --now app.service`
+
+
+**Verify:**
+
+`systemctl status app.service`
+
+**Expected:** active (running), running as appuser not root.
+
+**Rollback**
+
+If the firewall rule in 6.3 blocks the proxy incorrectly:
+
+`sudo nft flush ruleset`
+
+Then reapply your saved base ruleset from firewall/nftables-internal.conf and redo Step 6.3 with the correct IP.
+
+
+## Section 7: Future improvments
+
+### Mandatory acess control
+SELinux (enforcing)
+
+### Cryptography
+Appling strong algorithms only
+
+Keeping certificates currrent
+
+### Disk Encryption
+Full-disk or volume encryption where feasible (especially for sensitive data)
+
+### Brute-force Protection
+Fail2ban (or equivalent) for SSH and other exposed services
+
+### Configuration Managment tools
+
+using tools like Ansible, Puppet, Chef to enforce permessions and ownership.
+
+
+
+
+
