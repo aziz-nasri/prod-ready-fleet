@@ -124,8 +124,28 @@ set_config "log_lock_waits" "on" "$POSTGRESQL_CONF"
 
 set_config "password_encryption" "'scram-sha-256'" "$POSTGRESQL_CONF"
 
+ # configuring pg_hba.conf
+sudo tee "$PG_HBA_CONF" > /dev/null <<EOF
+
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+# Local Unix socket connections (admin)
+local   all             postgres                                peer
+local   all             all                                     peer
+
+# IPv4 local connections (localhost)
+host    all             all             127.0.0.1/32            scram-sha-256
+
+# Allow the App server to connect to the application database
+host    ${DB_NAME}      ${DB_USER}      ${APP_IP}/32            scram-sha-256
+
+# Reject everything else
+host    all             all             0.0.0.0/0               reject
+host    all             all             ::/0                    reject
+EOF
 
 
+# enabling postgresql
 sudo systemctl enable --now postgresql &> /dev/null
 sudo systemctl start postgresql
 
