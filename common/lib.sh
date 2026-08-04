@@ -54,3 +54,28 @@ retry() {
     sleep 2
   done
 }
+
+# closing services function
+close_ports() {
+    local ports=("$@")
+
+    for port in "${ports[@]}"; do
+        pids=$(ss -ltnp "sport = :$port" 2>/dev/null | awk 'NR>1 {print $NF}' | grep -oP 'pid=\K[0-9]+')
+
+        if [[ -z "$pids" ]]; then
+            echo "No process listening on port $port"
+            continue
+        fi
+
+        for pid in $pids; do
+            proc_name=$(ps -p "$pid" -o comm=)
+            echo "Killing PID $pid ($proc_name) on port $port"
+            kill -15 "$pid"
+            sleep 1
+            if kill -0 "$pid" 2>/dev/null; then
+                echo "  Still running, forcing kill"
+                kill -9 "$pid"
+            fi
+        done
+    done
+}
