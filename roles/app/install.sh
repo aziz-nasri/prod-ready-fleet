@@ -63,7 +63,8 @@ close_ports $TO_BE_ClOSED_PORTS
 ../../common/user_provi.sh appuser.conf
 log_info "Appuser created."
 
- # crating the app.service
+ # creating the app.service
+ if [[ ! -f $SERVICE_FILE ]]; then
 sudo tee "$SERVICE_FILE" > /dev/null <<EOF
 [Unit]
 Description=${APP_NAME} application server
@@ -97,6 +98,7 @@ log_info "application service file created and running."
 
 sudo chown $APP_USER:$APP_USER $APP_DIR/.env &> /dev/null
 sudo chmod 600 $APP_DIR/.env &> /dev/null
+fi
 
 # logging 
 sudo journalclt -u $SERVICE_FILE &> /dev/null
