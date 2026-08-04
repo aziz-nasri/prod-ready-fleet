@@ -57,3 +57,39 @@ netplan apply
 close_ports $TO_BE_ClOSED_PORTS
 
 # setting up Postgresql
+ # installig the package
+sudo apt update &> /dev/null
+pkg_install postgresql
+pkg_install postgresql-contrib
+log_info "postgresql installed."
+
+ # creating the database
+sudo -u postgres -c << EOF
+CREATE USER appuser WITH PASSWORD '${APPUSER_PASSWD}';
+CREATE DATABASE appdb OWNER appuser;
+REVOKE ALL ON DATABASE appdb FROM PUBLIC;
+GRANT CONNECT ON DATABASE appdb TO appuser;
+EOF
+ # Finding PostgreSQL config directory
+if [[ -d /etc/postgresql ]]; then
+    PG_VERSION=$(ls /etc/postgresql/ | sort -V | tail -n1)
+    PG_CONF_DIR="/etc/postgresql/${PG_VERSION}/main"
+else
+    die "Could not find PostgreSQL configuration directory."
+fi
+POSTGRESQL_CONF="${PG_CONF_DIR}/postgresql.conf"
+PG_HBA_CONF="${PG_CONF_DIR}/pg_hba.conf"
+
+# Safety checks
+if [[ ! -f "$POSTGRESQL_CONF" ]]; then
+    die "$POSTGRESQL_CONF not found."
+fi
+if [[ ! -f "$PG_HBA_CONF" ]]; then
+    die "$PG_HBA_CONF not found."
+fi
+
+
+
+sudo systemctl enable --now postgresql &> /dev/null
+sudo systemctl start postgresql
+
