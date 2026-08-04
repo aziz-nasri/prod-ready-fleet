@@ -149,3 +149,44 @@ EOF
 sudo systemctl enable --now postgresql &> /dev/null
 sudo systemctl start postgresql
 
+# installing dnsmasq
+pkg_install dnsmasq
+
+# disabling existing resolvers
+sudo systemctl stop systemd-resolved &> /dev/null
+sudo systemctl disable systemd-resolved &> /dev/null
+sudo rm -f /etc/resolv.conf &> /dev/null
+echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf  &> /dev/null
+
+# Make sure the main config reads the directory
+grep -q 'conf-dir=/etc/dnsmasq.d' /etc/dnsmasq.conf || \
+  echo 'conf-dir=/etc/dnsmasq.d/,*.conf' | sudo tee -a /etc/dnsmasq.conf
+
+# Create custom config
+sudo tee /etc/dnsmasq.d/lab.conf > /dev/null <<EOF
+interface=${INTERFACES[0]}
+listen-address=${LISTEN_IP}
+bind-interfaces
+
+no-hosts
+no-resolv
+
+server=1.1.1.1
+server=8.8.8.8
+
+domain=lab.internal
+expand-hosts
+local=/lab.internal/
+
+address=/proxy.lab.internal/10.0.20.10
+address=/app.lab.internal/10.0.20.21
+address=/db.lab.internal/10.0.20.20
+address=/dns.lab.internal/10.0.20.20
+
+cache-size=1000
+domain-needed
+bogus-priv
+log-queries
+log-facility=/var/log/dnsmasq.log
+EOF
+
