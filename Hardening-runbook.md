@@ -79,7 +79,7 @@ Before disabling password login, verify your public key is already present on th
 **Expected output:** one line starting with ssh-ed25519 or ssh-rsa, ending in your key comment (e.g. you@laptop).
 **Red flag:** empty file or "No such file or directory". do not proceed until this is fixed.
 
-### 2.2 Disable password authentication, root login and non-standard port.
+### 3.2 Disable password authentication, root login and non-standard port.
 
 **Why:** password auth is brute-forceable; direct root login removes your audit trail (you can't tell which admin logged in as root).
 
@@ -123,7 +123,7 @@ From your still-open original session:
 
 Then re-check Step 3.1 before retrying. a missing or malformed authorized_keys file is the most common cause of failure here.
 
-**Automatd equivament:** common/harden.sh
+### Automatd equivalent: common/harden.sh
 
 ## Section 4: Firewall
 
@@ -181,7 +181,7 @@ Run the following commands:
 
 or write the rules manually in " /etc/nftables.conf "
 
-**Automated equivalent:** common/harden.sh
+### Automated equivalent: common/harden.sh
 
 ## Section 5: File ownership/permission 
 
@@ -257,14 +257,14 @@ Risk level: Moderate misconfiguring the firewall step can cut off the proxy's ac
 
 **Why:** the app must be unreachable except through the proxy. Binding to 0.0.0.0 exposes it on every interface, including any future public one.
 
-Edit the app's config/env file so it listens on the internal NIC's IP (e.g. 10.0.20.20) or 127.0.0.1 if the proxy connects via a local tunnel, not 0.0.0.0.
+Edit the app's config/env file so it listens on the internal NIC's IP (e.g. 10.0.20.21) or 127.0.0.1 if the proxy connects via a local tunnel, not 0.0.0.0.
 
 **Verify:**
 
 `sudo ss -tlnp | grep 8080`
 
-**Expected:** listening address is 10.0.20.20:8080, not 0.0.0.0:8080.
-Red flag: 0.0.0.0:8080 — the app is reachable from anywhere on the internal network, not just the proxy.
+**Expected:** listening address is 10.0.20.21:8080, not 0.0.0.0:8080.
+Red flag: 0.0.0.0:8080 the app is reachable from anywhere on the internal network, not just the proxy.
 
 ### 6.3 Restrict the local firewall to the proxy's IP only
 
@@ -274,17 +274,16 @@ Red flag: 0.0.0.0:8080 — the app is reachable from anywhere on the internal ne
 
 `sudo nft add rule inet filter input tcp dport 8080 drop`
 
-(Replace 10.0.20.10 with srv1's actual internal IP.)
 
 **Verify from srv1:**
 
-`curl -m 3 http://10.0.20.20:8080/health`
+`curl -m 3 http://10.0.20.21:8080/health`
 
 **Expected:** successful response.
 
 **Verify from srv3** (should fail it has no legitimate reason to reach the app port):
 
-`curl -m 3 http://10.0.20.20:8080/health`
+`curl -m 3 http://10.0.20.21:8080/health`
 
 **Expected:** connection timeout or refused.
 
@@ -349,6 +348,28 @@ If the firewall rule in 6.3 blocks the proxy incorrectly:
 `sudo nft flush ruleset`
 
 Then reapply your saved base ruleset from firewall/nftables-internal.conf and redo Step 6.3 with the correct IP.
+
+### 6.7 Close unecessary listrning ports
+
+**why:** unecessary open ports could be a velnrability exploited by attackers
+
+see the listening ports:
+
+`sudo ss -ltnp`
+
+close the unecessary ports:
+
+`sudo kill -15 <PID>` (graceful kill.)
+
+`sudo kill -9 <PID>` (Forceful kill if kill -15 doesn't work.)
+
+**verify**: 
+
+`sudo ss -ltnp`
+
+all the killed process and their ports should not be listed.
+
+### Automated Equivalent: roles/app/install.sh
 
 
 ## Section 7: Future improvments
