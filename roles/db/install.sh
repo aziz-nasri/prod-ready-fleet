@@ -70,7 +70,7 @@ CREATE DATABASE appdb OWNER appuser;
 REVOKE ALL ON DATABASE appdb FROM PUBLIC;
 GRANT CONNECT ON DATABASE appdb TO appuser;
 EOF
- # Finding PostgreSQL config directory
+# Finding PostgreSQL config directory
 if [[ -d /etc/postgresql ]]; then
     PG_VERSION=$(ls /etc/postgresql/ | sort -V | tail -n1)
     PG_CONF_DIR="/etc/postgresql/${PG_VERSION}/main"
@@ -80,13 +80,49 @@ fi
 POSTGRESQL_CONF="${PG_CONF_DIR}/postgresql.conf"
 PG_HBA_CONF="${PG_CONF_DIR}/pg_hba.conf"
 
-# Safety checks
+ # Safety checks
 if [[ ! -f "$POSTGRESQL_CONF" ]]; then
     die "$POSTGRESQL_CONF not found."
 fi
 if [[ ! -f "$PG_HBA_CONF" ]]; then
     die "$PG_HBA_CONF not found."
 fi
+
+# editing configuration
+ # backing up files
+backup_file $POSTGRESQL_CONF
+backup_file $PG_HBA_CONF
+
+ # the set config function
+set_config() {
+    local key="$1"
+    local value="$2"
+    local file="$3"
+
+    if grep -qE "^[#\s]*${key}\s*=" "$file"; then
+        sudo sed -i -E "s|^[#\s]*${key}\s*=.*|${key} = ${value}|" "$file"
+    else
+        echo "${key} = ${value}" | sudo tee -a "$file" > /dev/null
+    fi
+}
+ # configuring postgresql.conf
+set_config "listen_addresses" "'${LISTEN_IP}'" "$POSTGRESQL_CONF"
+set_config "port" "${PORT}" "$POSTGRESQL_CONF"
+
+set_config "shared_buffers" "${SHARED_BUFFERS}" "$POSTGRESQL_CONF"
+set_config "effective_cache_size" "${EFFECTIVE_CACHE_SIZE}" "$POSTGRESQL_CONF"
+set_config "work_mem" "${WORK_MEM}" "$POSTGRESQL_CONF"
+set_config "maintenance_work_mem" "${MAINTENANCE_WORK_MEM}" "$POSTGRESQL_CONF"
+
+set_config "logging_collector" "on" "$POSTGRESQL_CONF"
+set_config "log_directory" "'log'" "$POSTGRESQL_CONF"
+set_config "log_filename" "'postgresql-%Y-%m-%d.log'" "$POSTGRESQL_CONF"
+set_config "log_min_duration_statement" "500" "$POSTGRESQL_CONF"
+set_config "log_connections" "on" "$POSTGRESQL_CONF"
+set_config "log_disconnections" "on" "$POSTGRESQL_CONF"
+set_config "log_lock_waits" "on" "$POSTGRESQL_CONF"
+
+set_config "password_encryption" "'scram-sha-256'" "$POSTGRESQL_CONF"
 
 
 
