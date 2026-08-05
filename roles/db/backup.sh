@@ -53,20 +53,18 @@ fi
 # Create backup
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
 BASENAME="${PREFIX}_${TIMESTAMP}"
-TMP_BACKUP="${BACKUP_DIR}/${BASENAME}.tmp"
+TMP_BACKUP="${BACKUP_DIR}/${BASENAME}.tmp.d"
 
 log "INFO" "Starting backup of $SOURCE_FILE (running as $(whoami))"
 
 # Copy the database file
-cp --preserve=timestamps "$SOURCE_FILE" "$TMP_BACKUP"
+cp -a "$SOURCE_FILE" "${TMP_BACKUP}/"
 
 if [[ "$COMPRESS" == "true" ]]; then
-    gzip -9 "$TMP_BACKUP"
-    FINAL_BACKUP="${BACKUP_DIR}/${BASENAME}.db.gz"
+    tar -cJf "${BASENAME}.xz" "${TMP_BACKUP}/"
     mv "${TMP_BACKUP}.gz" "$FINAL_BACKUP"
 else
-    FINAL_BACKUP="${BACKUP_DIR}/${BASENAME}.db"
-    mv "$TMP_BACKUP" "$FINAL_BACKUP"
+    mv "${TMP_BACKUP}/" "$BACKUP_DIR"
 fi
 
 # Basic integrity: file must not be empty
