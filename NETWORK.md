@@ -26,6 +26,16 @@ srv2 and srv3 hold the actual logic and the actual data they're the assets worth
 
 **why:** with this design we can have clear firewall rules between the zones. It give a room for for growth (we can later split the /24 into smaller subnets). Avoids the common 192.168.x.x range that can clash with home networks and VPNs.
 
+**IP scheme**
+
+| server | zone |IP|
+| ----------- | ----------- | ----------- |
+|srv1| DMZ leg|10.0.10.10|
+|srv1| Internal leg |10.0.20.10|
+|srv2| Internal|10.0.20.21|
+|srv3|Internal|10.0.20.20|
+|admin host| Managment|10.0.0.28|
+
 ## DNS
 
 **Setup:**
