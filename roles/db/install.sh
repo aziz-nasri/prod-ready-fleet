@@ -187,3 +187,30 @@ log-queries
 log-facility=/var/log/dnsmasq.log
 EOF
 
+# backup script
+ # creating the backup user
+"$(dirname "$0")/../../common/user_provi.sh" backupuser.conf
+
+pkg_install rsync
+ # adding the source directory to the service file
+sudo sed -i "s/SOURCE_FILE_PLACEHOLDER/${PG_CONF_DIR}/" backup.service &> /dev/null
+
+# Copy the script
+sudo cp backup.sh /usr/local/bin/
+suod chown backup /usr/local/bin/backup.sh
+sudo chmod 500 /usr/local/bin/backup.sh
+
+# Copy the units
+sudo cp backup.service backup.timer /etc/systemd/system/
+
+# Create directories
+sudo mkdir -p /var/backups/myapp
+sudo chown backup /var/backups/myapp
+sudo chmod 700 /var/backups/myapp
+
+# Enable and start the timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now backup.timer
+
+
+

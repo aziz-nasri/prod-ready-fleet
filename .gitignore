@@ -10,5 +10,8 @@ roles/app/app.conf
 # Database + DNS server config
 roles/db/db-server.conf
 
+# Database server backup user config
+roles/db/backupuser.conf
+
 # Proxy server config
 roles/proxy/proxy.conf
