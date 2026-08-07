@@ -36,6 +36,14 @@ srv2 and srv3 hold the actual logic and the actual data they're the assets worth
 |srv3|Internal|10.0.20.20|
 |admin host| Managment|10.0.0.28|
 
+**clarification:**
+
+- srv1 act as router, not just a proxy: srv2/srv3's default route points at srv1's internal IP: 10.0.20.10, IP forwording is enabled and a masquerade/NAT rule was added so traffic from the internal zone gets translated to srv1's NAT adapter address on its way out
+
+- Since the NAT adapter is what VirtualBox actually uses to simulate "the internet" (what is used in this project.), inbound public traffic physically arrives on the NAT interface, not the DMZ leg.
+
+- The DMZ leg currently has only srv1 on it, no other host exists in that segment. So right now it's a trust-boundary placeholder: it exists to represent "this is where DMZ-tier hosts would live".
+
 ## DNS
 
 **Setup:**
@@ -50,9 +58,11 @@ Each host in the fleet resolves by name rather than hardcoded IP:
 |app.lab.internal|10.0.20.21|
 |db.lab.internal|10.0.20.20|
 
-Static host mappings are defined in dnsmasq.d/lab.conf and dnsmasq is bound explicitly to the internal interface (bind-interfaces), so it does not answer queries from the DMZ leg or the NAT-facing adapter. Upstream forwarding is disabled dnsmasq answers only for lab.internal and does not resolve external domains, since nothing on the internal zone should need to reach the public internet directly.
+- Static host mappings are defined in dnsmasq.d/lab.conf and dnsmasq is bound explicitly to the internal interface (bind-interfaces), so it does not answer queries from the DMZ leg or the NAT-facing adapter.
 
-Each internal host's /etc/netplan config points its nameservers entry at 10.0.20.20, so name resolution is automatic on boot rather than requiring manual /etc/hosts edits per server.
+- Upstream forwarding is disabled dnsmasq answers only for lab.internal and does not resolve external domains, since nothing on the internal zone should need to reach the public internet directly.
+
+- Each internal host's /etc/netplan config points its nameservers entry at 10.0.20.20, so name resolution is automatic on boot rather than requiring manual /etc/hosts edits per server.
 
 **Why dnsmasq:**
 
