@@ -377,6 +377,7 @@ all the killed process and their ports should not be listed.
 
 
 **Applies to:** srv1 (proxy / NAT gateway) only
+
 **Risk level:** High this box is internet-facing and the only route between zones. A firewall mistake here can either expose the internal zone or cut off legitimate access. Keep your management SSH session open until Step 7.6 is verified.
 
 ### 7.1 Disable nginx default site and hide version info
@@ -487,7 +488,7 @@ sudo nft add rule inet filter forward drop
 **Verify from srv2:**
 ```
 curl -m 3 -sI https://example.com   # should succeed
-nc -zv -w3 example.com 22           # should fail — port not in the allow list
+nc -zv -w3 example.com 22           # should fail port not in the allow list
 ```
 
 ### 7.6 Persist the ruleset and confirm reboot survival
@@ -503,11 +504,178 @@ After reboot, re-run the verification commands from X.4 and X.5 to confirm the r
 ### Rollback
 
 If Step 7.4 or 7.5 locks out legitimate access (e.g. your own SSH session):
-```bash
+```
 sudo nft flush ruleset
 ```
 Reconnect via the VirtualBox console (not SSH) if network access itself is broken, restore `/etc/nftables.conf.bak.<timestamp>`, and reapply rules one at a time, verifying after each.
 
+Here's the DB + DNS hardening section for srv3, matching the format of your other runbook sections.
+
+### Automated Equivalent : `roles/porxy/install.sh`
+
+
+
+## Section 8: Database & DNS Server Hardening (srv3)
+
+**Applies to:** srv3 (database + internal DNS) only
+
+**Risk level:** High this box holds the fleet's data and is the sole DNS resolver for the internal zone. A misconfigured `pg_hba.conf` can either lock out the app or expose the database; a DNS misstep can break name resolution for every other server.
+
+### 8.1 Bind PostgreSQL to the internal interface only
+
+**Why:** the database must never be reachable from any interface but the internal zone it has no legitimate reason to listen anywhere else.
+
+```
+sudo sed -i "s/^#\?listen_addresses.*/listen_addresses = '10.0.20.20'/" /etc/postgresql/*/main/postgresql.conf
+sudo systemctl restart postgresql
+```
+
+**Verify:**
+```
+sudo ss -tlnp | grep 5432
+```
+**Expected:** listening address is `10.0.20.20:5432`, not `0.0.0.0:5432` or `*:5432`.
+
+### 8.2 Restrict client authentication to the app server only
+
+**Why:** `pg_hba.conf` is the actual access-control layer binding to the right interface alone doesn't stop other hosts on the same subnet from connecting.
+
+```
+sudo cp /etc/postgresql/*/main/pg_hba.conf /etc/postgresql/*/main/pg_hba.conf.bak.$(date +%s)
+```
+
+Add this line to `pg_hba.conf`, above any broader `host all all` entries:
+```
+host    appdb    appuser    10.0.20.21/32    scram-sha-256
+```
+
+Ensure the `postgres` superuser is restricted to local-only access:
+```
+local   all      postgres                    peer
+```
+
+```
+sudo systemctl reload postgresql
+```
+
+**Verify from srv2 (should succeed):**
+```
+psql -h 10.0.20.20 -U appuser -d appdb -c '\conninfo'
+```
+
+**Verify from srv1 (should fail):**
+```
+psql -h 10.0.20.20 -U appuser -d appdb -c '\conninfo'
+```
+**Expected:** `FATAL: no pg_hba.conf entry for host "10.0.10.10"...`
+
+### 8.3 Create a least-privilege database role
+
+**Why:** the app should never connect as `postgres`. A compromised app credential should only be able to touch its own database, not the whole cluster.
+
+```
+CREATE ROLE appuser WITH LOGIN PASSWORD 'REPLACE_ME';
+CREATE DATABASE appdb OWNER appuser;
+REVOKE ALL ON DATABASE appdb FROM PUBLIC;
+GRANT CONNECT ON DATABASE appdb TO appuser;
+```
+
+**Verify:**
+```sql
+\du appuser
+```
+**Expected:** `appuser` has `Login` but not `Superuser`, `Createrole`, or `Createdb`.
+
+### 8.4 Set connection limits
+
+**Why:** caps the blast radius of a runaway or misbehaving app process exhausting database connections.
+
+```
+sudo sed -i "s/^#\?max_connections.*/max_connections = 40/" /etc/postgresql/*/main/postgresql.conf
+sudo systemctl restart postgresql
+```
+
+**Verify:**
+```
+SHOW max_connections;
+```
+
+### 8.5 Restrict the local firewall to the app server's IP
+
+```
+sudo nft add rule inet filter input ip saddr 10.0.20.21 tcp dport 5432 accept
+sudo nft add rule inet filter input tcp dport 5432 drop
+```
+
+**Verify from srv2:** connection on 8.2 above still succeeds.
+**Verify from srv1:** `nc -zv -w3 10.0.20.20 5432` should fail.
+
+### 8.6 Bind dnsmasq to the internal interface only
+
+**Why:** DNS should answer queries from the internal zone exclusively not the DMZ or NAT-facing side of the fleet.
+
+```
+sudo tee -a /etc/dnsmasq.conf <<'EOF'
+interface=enp0s3
+bind-interfaces
+no-resolv
+EOF
+sudo systemctl restart dnsmasq
+```
+
+`no-resolv` disables forwarding to any upstream resolver internal hosts get answers only for `lab.internal` names, nothing external.
+
+**Verify:**
+```
+dig @10.0.20.20 db.lab.internal +short
+```
+**Expected:** returns `10.0.20.20`.
+
+**Verify forwarding is actually disabled:**
+```
+dig @10.0.20.20 example.com +short
+```
+**Expected:** empty response or `SERVFAIL` — confirms no external DNS leak.
+
+### 8.7 Restrict DNS access by firewall as well as by binding
+
+Why: defense in depth don't rely on `bind-interfaces` alone.
+
+```
+sudo nft add rule inet filter input ip saddr 10.0.20.0/24 udp dport 5432 accept
+sudo nft add rule inet filter input ip saddr 10.0.20.0/24 tcp dport 5432 accept
+sudo nft add rule inet filter input udp dport 5432 drop
+sudo nft add rule inet filter input tcp dport 5432 drop
+```
+
+**Verify from srv1 (DMZ leg, should fail):**
+```
+dig @10.0.20.20 db.lab.internal +short
+```
+**Expected:** timeout no response.
+
+### 8.8 Confirm automated backups are running
+
+```
+systemctl list-timers | grep backup
+sudo systemctl start backup.service   # trigger manually once
+ls -la /var/backups/postgres/
+```
+**Expected:** a fresh postgresql main folder (or optionaly compressed ) with today's timestamp.
+
+### Rollback
+
+If `pg_hba.conf` changes lock out the app (Step 8.2):
+```
+sudo cp /etc/postgresql/*/main/pg_hba.conf.bak.<timestamp> /etc/postgresql/*/main/pg_hba.conf
+sudo systemctl reload postgresql
+```
+
+If dnsmasq changes break resolution fleet-wide (Step 8.6/8.7):
+```
+sudo systemctl stop dnsmasq
+```
+Temporarily fall back to `/etc/hosts` entries on each host while you fix the config, then restart dnsmasq and re-verify.
 
 ## Section : Future improvments
 
