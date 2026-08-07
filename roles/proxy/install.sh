@@ -62,7 +62,7 @@ sudo systemctl enable --now nginx > /dev/null
 sudo systemctl start nginx > /dev/null
 
 # configuring nginx
-sudo tee /etc/nginx/sites-available/myapp << EFO
+sudo tee /etc/nginx/sites-enabled/myapp << EFO
 # Redirect HTTP to HTTPS
 server {
     listen 80;
@@ -91,10 +91,9 @@ server {
 
     # ----- Reverse proxy to App server -----
     location / {
-        proxy_pass http://${APP_IP}:${APP_PORT};          # Internal App IP + port
+        proxy_pass http://${APP_IP}:${APP_PORT};
         proxy_http_version 1.1;
 
-        # Important headers
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -120,6 +119,76 @@ server {
     return 444;   # drop connections with no matching/unexpected Host header
 }
 EFO
+
+# adding the server tokens off and the rate limiter in nginx.conf
+if [[ ! -f "$NGINX_CONF" ]]; then
+   die "nginx.conf file dosen't exist."
+fi
+
+backup_file $NGINX_CONF
+
+
+TOKENS_DIRECTIVE="    server_tokens off;"
+LIMIT_ZONE_DIRECTIVE="    limit_req_zone \$binary_remote_addr zone=one:10m rate=10r/s;"
+TOKENS_EXISTS=false
+LIMIT_EXISTS=false
+
+grep -qE '^\s*server_tokens\s+off\s*;' "$NGINX_CONF" && TOKENS_EXISTS=true
+grep -qE '^\s*limit_req_zone\s+' "$NGINX_CONF" && LIMIT_EXISTS=true
+
+if [[ "$TOKENS_EXISTS" == true && "$LIMIT_EXISTS" == true ]]; then
+    log_info "Both directives already present."
+else
+  TMP_FILE=$(mktemp)
+
+awk -v tokens="$TOKENS_DIRECTIVE" \
+    -v limit="$LIMIT_ZONE_DIRECTIVE" \
+    -v tokens_exists="$TOKENS_EXISTS" \
+    -v limit_exists="$LIMIT_EXISTS" '
+BEGIN {
+    in_http = 0
+    added = 0
+}
+{
+    # Detect the start of the http block
+    if ($0 ~ /^http\s*\{/) {
+        in_http = 1
+        print $0
+        next
+    }
+
+    # We are inside http block and haven'\''t added the directives yet
+    if (in_http == 1 && added == 0) {
+        # Add after the opening brace (skip empty lines and comments right after {)
+        if ($0 ~ /^[ \t]*$/ || $0 ~ /^[ \t]*#/) {
+            print $0
+            next
+        }
+
+        # Insert the directives here
+        if (tokens_exists == "false") {
+            print tokens
+        }
+        if (limit_exists == "false") {
+            print limit
+        }
+        print ""          # blank line for readability
+        added = 1
+        print $0
+        next
+    }
+
+    # Detect end of http block (very simple check)
+    if (in_http == 1 && $0 ~ /^\}/) {
+        in_http = 0
+    }
+
+    print $0
+}
+' "$NGINX_CONF" > "$TMP_FILE"
+
+cp "$TMP_FILE" "$NGINX_CONF"
+fi
 
 sudo ln -s /etc/nginx/sites-available/myapp /etc/nginx/sites-enabled/ > /dev/null
 sudo rm -f /etc/nginx/sites-enabled/default > /dev/null
