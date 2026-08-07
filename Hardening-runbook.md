@@ -373,7 +373,143 @@ all the killed process and their ports should not be listed.
 ### Automated Equivalent: roles/app/install.sh
 
 
-## Section 7: Future improvments
+## Section 7: Proxy Server Hardening (srv1)
+
+
+**Applies to:** srv1 (proxy / NAT gateway) only
+**Risk level:** High this box is internet-facing and the only route between zones. A firewall mistake here can either expose the internal zone or cut off legitimate access. Keep your management SSH session open until Step 7.6 is verified.
+
+### 7.1 Disable nginx default site and hide version info
+
+**Why:** the default nginx welcome page confirms nginx is running and its version, which is free reconnaissance for an attacker.
+
+```
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo sed -i 's/^#\?server_tokens.*/server_tokens off;/' /etc/nginx/nginx.conf
+```
+
+**Verify:**
+```
+curl -sI http://localhost | grep -i server
+```
+**Expected:** `Server: nginx` with no version number.
+**Red flag:** a version string like `nginx/1.24.0` still appears.
+
+### 7.2 Configure explicit server_name with a catch-all
+
+**Why:** an unmatched or spoofed `Host` header should be rejected outright, not silently served by whichever block nginx picks by default.
+
+```
+# /etc/nginx/sites-available/proxy.conf
+server {
+    listen 443 ssl;
+    server_name proxy.lab.internal;
+    # TLS cert directives, proxy_pass to srv2 go here
+}
+
+server {
+    listen 443 ssl default_server;
+    server_name _;
+    return 444;
+}
+```
+
+```
+sudo ln -sf /etc/nginx/sites-available/proxy.conf /etc/nginx/sites-enabled/
+sudo nginx -t
+```
+
+**Verify:**
+```
+curl -sk https://localhost -H "Host: something-unexpected.com"
+```
+**Expected:** connection closed with no response (444).
+
+### 7.3 Enable rate limiting
+
+**Why:** without a limit, the proxy has no defense against a basic flood of requests hitting the app server behind it.
+
+```
+# in http block
+limit_req_zone $binary_remote_addr zone=basic:10m rate=10r/s;
+
+# in the proxy server block
+location / {
+    limit_req zone=basic burst=20 nodelay;
+    proxy_pass http://10.0.20.21:8080;
+}
+```
+
+```
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**Verify:**
+```
+for i in {1..30}; do curl -s -o /dev/null -w "%{http_code}\n" https://localhost; done
+```
+**Expected:** first ~20 requests return `200`, later ones return `503`.
+
+### 7.4 Restrict inbound firewall rules by interface
+
+**Why:** with three NICs, each interface needs its own explicit rule IP-only rules don't guarantee traffic arrived on the interface it claims to.
+
+```
+NAT_IF="enp0s3"
+INT_IF="enp0s9"
+
+sudo nft add rule inet filter input iifname "$NAT_IF" tcp dport { 80, 443 } accept
+sudo nft add rule inet filter input iifname "$INT_IF" ip saddr 10.0.0.0/28 tcp dport 22 accept
+sudo nft add rule inet filter input drop
+```
+
+**Verify from the internal zone, confirm SSH works:**
+```
+ssh -i ~/.ssh/id_ed25519 admin@10.0.20.10   # from the management subnet only
+```
+**Expected:** connects normally.
+
+**Verify confirm SSH is blocked on the DMZ/NAT side:**
+```
+ssh -p <forwarded-port> admin@127.0.0.1     #simulating a public attempt
+```
+**Expected:** connection refused or times out.
+
+### 7.5 Restrict outbound forwarding to 80/443 only
+
+**Why:** the internal zone should only reach the internet for the narrow case (e.g. `apt update`), never as a general-purpose route out.
+
+```
+sudo nft add rule inet filter forward iifname "$INT_IF" oifname "$NAT_IF" ip saddr 10.0.20.0/24 tcp dport { 80, 443 } accept
+sudo nft add rule inet filter forward drop
+```
+
+**Verify from srv2:**
+```
+curl -m 3 -sI https://example.com   # should succeed
+nc -zv -w3 example.com 22           # should fail — port not in the allow list
+```
+
+### 7.6 Persist the ruleset and confirm reboot survival
+
+```
+sudo nft list ruleset | sudo tee /etc/nftables.conf
+sudo systemctl enable nftables
+sudo reboot
+```
+
+After reboot, re-run the verification commands from X.4 and X.5 to confirm the rules survived.
+
+### Rollback
+
+If Step 7.4 or 7.5 locks out legitimate access (e.g. your own SSH session):
+```bash
+sudo nft flush ruleset
+```
+Reconnect via the VirtualBox console (not SSH) if network access itself is broken, restore `/etc/nftables.conf.bak.<timestamp>`, and reapply rules one at a time, verifying after each.
+
+
+## Section : Future improvments
 
 ### Mandatory acess control
 SELinux (enforcing)
