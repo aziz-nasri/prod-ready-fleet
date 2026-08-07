@@ -1,3 +1,17 @@
+# the network diagram .svg image
 network_diagram.svg
-roles/app/app.conf
+
+# application server app user config
 roles/app/appuser.conf
+
+# Application server config
+roles/app/app.conf
+
+# Database + DNS server config
+roles/db/db-server.conf
+
+# backup user conf
+roles/db/backupuser.conf
+
+# porxy server config
+roles/proxy/proxy.conf

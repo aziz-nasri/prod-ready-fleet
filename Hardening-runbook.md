@@ -79,7 +79,7 @@ Before disabling password login, verify your public key is already present on th
 **Expected output:** one line starting with ssh-ed25519 or ssh-rsa, ending in your key comment (e.g. you@laptop).
 **Red flag:** empty file or "No such file or directory". do not proceed until this is fixed.
 
-### 2.2 Disable password authentication, root login and non-standard port.
+### 3.2 Disable password authentication, root login and non-standard port.
 
 **Why:** password auth is brute-forceable; direct root login removes your audit trail (you can't tell which admin logged in as root).
 
@@ -123,7 +123,7 @@ From your still-open original session:
 
 Then re-check Step 3.1 before retrying. a missing or malformed authorized_keys file is the most common cause of failure here.
 
-**Automatd equivament:** common/harden.sh
+### Automatd equivalent: common/harden.sh
 
 ## Section 4: Firewall
 
@@ -181,7 +181,7 @@ Run the following commands:
 
 or write the rules manually in " /etc/nftables.conf "
 
-**Automated equivalent:** common/harden.sh
+### Automated equivalent: common/harden.sh
 
 ## Section 5: File ownership/permission 
 
@@ -233,7 +233,147 @@ Restore package-default permissions where possible:
 `sudo apt install --reinstall <package>`
 
 
-## Section 6: Future improvments
+## Section 6: Application Server Hardening (srv2)
+
+**Applies to:** srv2 (app server) only
+Risk level: Moderate misconfiguring the firewall step can cut off the proxy's access to the app; verify from srv1 before moving on.
+
+### 6.1 Create a dedicated non-root service account
+
+**Why:** if the app process is ever compromised, it should not have root privileges on the box.
+
+`sudo useradd -r -s /usr/sbin/nologin -d /opt/app appuser`
+
+`sudo mkdir -p /opt/app`
+
+`sudo chown -R appuser:appuser /opt/app`
+
+**Verify:**
+
+`id appuser`
+
+**Expected:** user exists, shell is /usr/sbin/nologin (cannot be used for interactive login).
+
+### 6.2 Bind the app to the internal interface only
+
+**Why:** the app must be unreachable except through the proxy. Binding to 0.0.0.0 exposes it on every interface, including any future public one.
+
+Edit the app's config/env file so it listens on the internal NIC's IP (e.g. 10.0.20.21) or 127.0.0.1 if the proxy connects via a local tunnel, not 0.0.0.0.
+
+**Verify:**
+
+`sudo ss -tlnp | grep 8080`
+
+**Expected:** listening address is 10.0.20.21:8080, not 0.0.0.0:8080.
+Red flag: 0.0.0.0:8080 the app is reachable from anywhere on the internal network, not just the proxy.
+
+### 6.3 Restrict the local firewall to the proxy's IP only
+
+**Why:** even on the internal network, only srv1 has a reason to reach this port.
+
+`sudo nft add rule inet filter input ip saddr 10.0.20.10 tcp dport 8080 accept`
+
+`sudo nft add rule inet filter input tcp dport 8080 drop`
+
+
+**Verify from srv1:**
+
+`curl -m 3 http://10.0.20.21:8080/health`
+
+**Expected:** successful response.
+
+**Verify from srv3** (should fail it has no legitimate reason to reach the app port):
+
+`curl -m 3 http://10.0.20.21:8080/health`
+
+**Expected:** connection timeout or refused.
+
+### 6.4 Secure the environment/config file
+
+**Why:** this file holds config and possibly secrets (DB credentials, API keys) it should be unreadable by anyone but the app itself.
+
+`sudo chown appuser:appuser /opt/app/.env`
+
+`sudo chmod 600 /opt/app/.env`
+
+**Verify:**
+
+`ls -l /opt/app/.env`
+
+**Expected:** -rw------- 1 appuser appuser.
+
+### 6.5 Disable debug mode
+
+**Why:** debug modes commonly expose stack traces, environment variables, or admin endpoints a serious information leak if the box is ever probed.
+
+Check the app's config for a DEBUG or ENV flag and confirm it's set to false / production.
+
+**Verify:** request a deliberately invalid endpoint and confirm no stack trace or internal path is returned in the response.
+
+### 6.6 Configure the systemd unit with resource limits and auto-restart
+
+```
+# /etc/systemd/system/app.service
+[Unit]
+Description=Application server
+After=network.target
+
+[Service]
+User=appuser
+Group=appuser
+WorkingDirectory=/opt/app
+EnvironmentFile=/opt/app/.env
+ExecStart=/opt/app/bin/start
+Restart=on-failure
+MemoryMax=512M
+TasksMax=100
+
+[Install]
+WantedBy=multi-user.target
+```
+`sudo systemctl daemon-reload`
+
+`sudo systemctl enable --now app.service`
+
+
+**Verify:**
+
+`systemctl status app.service`
+
+**Expected:** active (running), running as appuser not root.
+
+**Rollback**
+
+If the firewall rule in 6.3 blocks the proxy incorrectly:
+
+`sudo nft flush ruleset`
+
+Then reapply your saved base ruleset from firewall/nftables-internal.conf and redo Step 6.3 with the correct IP.
+
+### 6.7 Close unecessary listrning ports
+
+**why:** unecessary open ports could be a velnrability exploited by attackers
+
+see the listening ports:
+
+`sudo ss -ltnp`
+
+close the unecessary ports:
+
+`sudo kill -15 <PID>` (graceful kill.)
+
+`sudo kill -9 <PID>` (Forceful kill if kill -15 doesn't work.)
+
+**verify**: 
+
+`sudo ss -ltnp`
+
+all the killed process and their ports should not be listed.
+
+### Automated Equivalent: roles/app/install.sh
+
+
+## Section 7: Future improvments
 
 ### Mandatory acess control
 SELinux (enforcing)
