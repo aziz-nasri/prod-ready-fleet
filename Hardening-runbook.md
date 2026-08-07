@@ -232,6 +232,7 @@ Restore package-default permissions where possible:
 
 `sudo apt install --reinstall <package>`
 
+
 ## Section 6: Application Server Hardening (srv2)
 
 **Applies to:** srv2 (app server) only

@@ -9,3 +9,9 @@ roles/app/app.conf
 
 # Database + DNS server config
 roles/db/db-server.conf
+
+# backup user conf
+roles/db/backupuser.conf
+
+# porxy server config
+roles/proxy/proxy.conf
