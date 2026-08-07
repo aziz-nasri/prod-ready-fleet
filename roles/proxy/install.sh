@@ -2,6 +2,7 @@
 
 set -euo pipefail
 source "$(dirname "$0")/../../common/lib.sh"
+source proxy.conf
 require_root
 check_connectivity
 require_cmd netplan
@@ -54,3 +55,73 @@ netplan apply
 
  # closing unecessary listening ports 
 close_ports $TO_BE_ClOSED_PORTS
+
+# installing nginx
+pkg_install nginx
+sudo systemctl enable --now nginx > /dev/null
+sudo systemctl start nginx > /dev/null
+
+# configuring nginx
+sudo tee /etc/nginx/sites-available/myapp << EFO
+# Redirect HTTP to HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${PROXY_HOST_NAME}; 
+
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ${PROXY_HOST_NAME};
+
+    # ----- SSL (lab can use self-signed) -----
+    ssl_certificate     /etc/nginx/ssl/proxy.crt;
+    ssl_certificate_key /etc/nginx/ssl/proxy.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+
+    # ----- Security headers -----
+    add_header X-Frame-Options DENY;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header Referrer-Policy strict-origin-when-cross-origin;
+
+    # ----- Reverse proxy to App server -----
+    location / {
+        proxy_pass http://${APP_IP}:${APP_PORT};          # Internal App IP + port
+        proxy_http_version 1.1;
+
+        # Important headers
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection        "";
+
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout    60s;
+        proxy_read_timeout    60s;
+    }
+
+    # health check endpoint (if your app has /health)
+    location /health {
+        proxy_pass http://${APP_IP}:${APP_PORT}/health;
+        access_log off;
+    }
+}
+
+server {
+    listen 443 ssl default_server;
+    server_name _;
+    return 444;   # drop connections with no matching/unexpected Host header
+}
+EFO
+
+sudo ln -s /etc/nginx/sites-available/myapp /etc/nginx/sites-enabled/ > /dev/null
+sudo rm -f /etc/nginx/sites-enabled/default > /dev/null
+sudo nginx -t || die "Wrong nginx syntax please recheck." > /dev/null
+sudo systemctl reload nginx > /dev/null
