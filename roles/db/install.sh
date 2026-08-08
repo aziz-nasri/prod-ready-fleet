@@ -175,10 +175,10 @@ domain=lab.internal
 expand-hosts
 local=/lab.internal/
 
-address=/proxy.lab.internal/10.0.20.10
-address=/app.lab.internal/10.0.20.21
-address=/db.lab.internal/10.0.20.20
-address=/dns.lab.internal/10.0.20.20
+address=/proxy.lab.internal/10.0.20.1
+address=/app.lab.internal/10.0.20.65
+address=/db.lab.internal/10.0.20.129
+address=/dns.lab.internal/10.0.20.129
 
 cache-size=1000
 domain-needed

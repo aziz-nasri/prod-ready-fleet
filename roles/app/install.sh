@@ -76,7 +76,7 @@ Type=simple
 User=${APP_USER}
 Group=${APP_USER}
 WorkingDirectory=${APP_DIR}
-ExecStart=${APP_EXEC} --bind 10.0.20.21:8080
+ExecStart=${APP_EXEC} --bind ${SERVER_ADDR}:8080
 Restart=on-failure
 RestartSec=5
 
