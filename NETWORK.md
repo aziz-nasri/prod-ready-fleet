@@ -32,7 +32,7 @@
 
 **Alternatives:**
 
-- one flat subnet for every internal server, was rejected for two reasons: No natural boundary for firewall rules. every rule has to be written per-host, and every new server means a new rule on every other server it needs to reach. This doesn't scale and is easy to get wrong or forget.
+- one flat subnet for every internal server, was rejected: No natural boundary for firewall rules. every rule has to be written per-host, and every new server means a new rule on every other server it needs to reach. This doesn't scale and is easy to get wrong or forget.
 
 - a single subnet per physical server rather than per role (e.g. 10.0.20.0/30 per box). it optimizes for address while making the same scaling problem worse: adding a new role or a new tier would require re-carving the address space rather than simply drawing from an already-reserved block.
 
@@ -49,7 +49,7 @@
 
 **clarification:**
 
-- srv1 act as router, not just a proxy: srv2/srv3's default route points at srv1's internal IP: 10.0.20.10, IP forwording is enabled and a masquerade/NAT rule was added so traffic from the internal zone gets translated to srv1's NAT adapter address on its way out
+- srv1 act as router, not just a proxy: srv2/srv3's default route points at srv1's internal IP: 10.0.20.1, IP forwording is enabled and a masquerade/NAT rule was added so traffic from the internal zone gets translated to srv1's NAT adapter address on its way out
 
 - Since the NAT adapter is what VirtualBox actually uses to simulate "the internet" (what is used in this project.), inbound public traffic physically arrives on the NAT interface, not the DMZ leg.
 
@@ -59,21 +59,21 @@
 
 **Setup:**
 
-Internal DNS resolution is provided by dnsmasq, running on srv3 (db.lab.internal, 10.0.20.20), serving only the internal zone (10.0.20.0/24).
+Internal DNS resolution is provided by dnsmasq, running on srv3 (db.lab.internal, 10.0.20.129), serving only the internal zone (10.0.20.0/24).
 
 Each host in the fleet resolves by name rather than hardcoded IP:
 
 | Hostname | IP |
 | ----------- | ----------- |
-|proxy.lab.internal|10.0.20.10|
-|app.lab.internal|10.0.20.21|
-|db.lab.internal|10.0.20.20|
+|proxy.lab.internal|10.0.20.1|
+|app.lab.internal|10.0.20.65|
+|db.lab.internal|10.0.20.129|
 
 - Static host mappings are defined in dnsmasq.d/lab.conf and dnsmasq is bound explicitly to the internal interface (bind-interfaces), so it does not answer queries from the DMZ leg or the NAT-facing adapter.
 
 - Upstream forwarding is disabled dnsmasq answers only for lab.internal and does not resolve external domains, since nothing on the internal zone should need to reach the public internet directly.
 
-- Each internal host's /etc/netplan config points its nameservers entry at 10.0.20.20, so name resolution is automatic on boot rather than requiring manual /etc/hosts edits per server.
+- Each internal host's /etc/netplan config points its nameservers entry at 10.0.20.129, so name resolution is automatic on boot rather than requiring manual /etc/hosts edits per server.
 
 **Why dnsmasq:**
 
