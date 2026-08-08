@@ -27,7 +27,6 @@ nft add rule inet nat postrouting oifname $NAT_IF masquerade > /dev/null
 sudo sysctl -w net.ipv4.ip_forward=1 > /dev/null
 echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/99-fleet-forwarding.conf > /dev/null
 sudo nft list ruleset | sudo tee /etc/nftables.conf > /dev/null
-sudo systemctl reload nftables 2>/dev/null || true
 }
 
 # Application server Firewall configurations
@@ -44,4 +43,36 @@ nft add rule inet filter output ip daddr $DATA_TIER tcp dport $DATABASE_PORT acc
 nft add rule inet filter output ip daddr $DATA_TIER udp dport $DNS_PORT accept > /dev/null
 nft add rule inet filter output ip daddr $DATA_TIER tcp dport $DNS_PORT accept > /dev/null
 nft add rule inet filter output tcp dport { $HTTP_PORT, $HTTPS_PORT } accept > /dev/null
+sudo nft list ruleset | sudo tee /etc/nftables.conf > /dev/null
 }
+
+db_fw(){
+nft add rule inet filter input ct state invalid drop > /dev/null
+nft add rule inet filter input ip saddr 10.0.0.0/28 tcp dport $SSH_PORT accept > /dev/null
+nft add rule inet filter input ip saddr $APP_TIER tcp dport $DATABASE_PORT accept > /dev/null
+nft add rule inet filter input ip saddr $APP_TIER udp dport $DNS_PORT accept > /dev/null
+nft add rule inet filter input ip saddr $APP_TIER tcp dport $DNS_PORT accept > /dev/null
+
+nft add chain inet filter output { type filter hook output priority 0; policy accept; } > /dev/null
+nft add rule inet filter output oif lo accept > /dev/null
+nft add rule inet filter output ct state established,related accept > /dev/null
+sudo nft list ruleset | sudo tee /etc/nftables.conf > /dev/null
+}
+
+if [[ $(hostname | grep -i "proxy") ]]; then
+    log_info "Adding firewall rules to the proxy server."
+    proxy_fw
+    log_info "finised adding firewall rules."
+elif [[ $(hostname | grep -i "app") ]]; then
+    log_info "Adding firewall rules to the Application server."
+    app_fw
+    log_info "finised adding firewall rules."
+elif [[ $(hostname | grep -i "database") ]]; then
+    log_info "Adding firewall rules to the Application server."
+    db_fw
+    log_info "finised adding firewall rules."
+else
+    log_warn "no server detected. no firewall rules applied."
+fi
+
+sudo systemctl reload nftables 2>/dev/null
