@@ -20,6 +20,12 @@ nft add rule inet filter forward iifname "$INT_IF" oifname "$NAT_IF" ip saddr $I
 
 nft add chain inet filter output { type filter hook output priority 0; policy accept; } > /dev/null
 
+nft add table inet nat > /dev/null
+nft add chaine inet nat postrouting { type nat hook postrouting priority 100; } > /dev/null
+nft add rule inet nat postrouting oifname $NAT_IF masquerade > /dev/null
+
+sudo sysctl -w net.ipv4.ip_forward=1 > /dev/null
+echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/99-fleet-forwarding.conf > /dev/null
 sudo nft list ruleset | sudo tee /etc/nftables.conf > /dev/null
 sudo systemctl reload nftables 2>/dev/null || true
 }
