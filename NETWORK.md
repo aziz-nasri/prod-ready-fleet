@@ -20,7 +20,7 @@ srv2 and srv3 hold the actual logic and the actual data they're the assets worth
 
 ## Subnet layout
 
-- **10.0.0.28/28:** Managment (SSH jump access to all 3 boxes)
+- **10.0.0.0/28:** Managment (SSH jump access to all 3 boxes)
 - **10.0.10.0/24:** DMZ (serv1's public-facing NIC)
 - **10.0.20.0/24:** Internal (srv1's internal, srv2, srv3)
 
@@ -34,7 +34,7 @@ srv2 and srv3 hold the actual logic and the actual data they're the assets worth
 |srv1| Internal leg |10.0.20.10|
 |srv2| Internal|10.0.20.21|
 |srv3|Internal|10.0.20.20|
-|admin host| Managment|10.0.0.28|
+|admin host| Managment|10.0.0.2|
 
 **clarification:**
 
