@@ -1,40 +1,51 @@
 ## Network Diagram:
 
-![Screen preview](./network_diagram.svg)
+![Screen preview](./fleet_network_diagram_v2_role_based.svg)
 
 ### Why:
 
-this design follows simple rule: nothing should be reachable only if it strictly need to be. so if a server is compromised the "blast radius" is small. unlike a flat design where everything could be exposed.
+- this design follows simple rule: nothing should be reachable only if it strictly need to be. so if a server is compromised the "blast radius" is small. unlike a flat design where everything could be exposed.
 
-The proxy (srv1) is the only thing that has to be reachable from the internet. it is the most attacked surface. Putting it in the DMZ zone means if its compromised the attacker has no direct route to the app logic and database.
+- The proxy (srv1) is the only thing that has to be reachable from the internet. it is the most attacked surface. Putting it in the DMZ zone means if its compromised the attacker has no direct route to the app logic and database.
 
-srv2 and srv3 hold the actual logic and the actual data they're the assets worth protecting. they are not meant to face risks niether has any reason to face the internet directly.
+- srv2 and srv3 hold the actual logic and the actual data they're the assets worth protecting. they are not meant to face risks niether has any reason to face the internet directly.
 
-## Roles
-
-| Server | role |Zone|
-| ----------- | ----------- | ----------- |
-|srv1|	Reverse proxy / edge (nginx or Caddy, TLS termination)|	DMZ|
-|srv2|Application server|	Internal|
-|srv3|Database + acts as internal DNS resolver|	Internal / Restricted|
+- role based subnet layout for scalability.
 
 ## Subnet layout
 
-- **10.0.0.28/28:** Managment (SSH jump access to all 3 boxes)
-- **10.0.10.0/24:** DMZ (serv1's public-facing NIC)
-- **10.0.20.0/24:** Internal (srv1's internal, srv2, srv3)
+| Subnet | Role |Range| Purpose |
+| ----------- | ----------- | ----------- |----------- |
+|Managment|Admin Access|10.0.0.0/28|SSH access from the operator's host only|
+|DMZ|Edge tier|10.0.10.0/24|Internet-facing leg of the proxy; room for future edge devices|
+|Gateway/transit|srv1 internal leg|10.0.20.0/26|a gateway or cross-tier roles. .0–.63|
+|APP tier|Application servers|10.0.20.64/26|Application server(s); usable range .64–.127|
+|Data tier|Databases + DNS|10.0.20.128/25|Database and internal DNS resolver; usable range .129–.254|
 
-**why:** with this design we can have clear firewall rules between the zones. It give a room for for growth (we can later split the /24 into smaller subnets). Avoids the common 192.168.x.x range that can clash with home networks and VPNs.
+**Why role-based subnetting:**
 
-**IP scheme**
+- The core reasoning is that a firewall rule scoped to a role rather than an individual host doesn't need to change when the fleet grows.
+
+- access is granted to a role/tag, and any host that is a member of that role automatically inherits the access, rather than every new host requiring manual firewall edits.
+
+- Any host that plays a gateway or cross-tier role should live outside the tiers it routes between otherwise it silently inherits every permission granted to whichever tier it happens to share an address range with, even permissions it was explicitly designed not to have.
+
+**Alternatives:**
+
+- one flat subnet for every internal server, was rejected for two reasons: No natural boundary for firewall rules. every rule has to be written per-host, and every new server means a new rule on every other server it needs to reach. This doesn't scale and is easy to get wrong or forget.
+
+- a single subnet per physical server rather than per role (e.g. 10.0.20.0/30 per box). it optimizes for address while making the same scaling problem worse: adding a new role or a new tier would require re-carving the address space rather than simply drawing from an already-reserved block.
+
+
+**IP scheme:**
 
 | server | zone |IP|
 | ----------- | ----------- | ----------- |
 |srv1| DMZ leg|10.0.10.10|
-|srv1| Internal leg |10.0.20.10|
-|srv2| Internal|10.0.20.21|
-|srv3|Internal|10.0.20.20|
-|admin host| Managment|10.0.0.28|
+|srv1| gateway/transit |10.0.20.1|
+|srv2| App tier|10.0.20.65|
+|srv3|Data tier|10.0.20.129|
+|admin host| Managment|10.0.0.2|
 
 **clarification:**
 
