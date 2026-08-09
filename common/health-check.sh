@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+source ./health.conf
 
 echo "======================================================"
 echo "==================SYSTEM STATUS===================="
@@ -10,9 +11,6 @@ echo "kernal version: $(hostnamectl | grep Kernel | cut -d":" -f2)"
 echo "Current Date: $(date)"
 echo "Uptime: $(uptime | cut -d"," -f1,2)"
 echo "Number of runnig processes: $(ps -e --no-headers | wc -l)"
-echo "Zombie processes:"
-ps aux | awk '$8=="Z" || $8=="Z+"'
-echo -e "\n"
 
 echo "======================================================"
 echo "==================SYSTEM RESOURCES===================="
@@ -46,6 +44,22 @@ echo -e "--------------------------------------------------------------\n"
 echo "======================================================"
 echo "==================SERVICES AND PROCESSES===================="
 echo -e "======================================================\n"
+echo "Critical services status:"
+echo "--------------------------------------------------------------"
+for service in "${services[@]}"; do
+    echo "=== $service ==="
+    sudo systemctl status "$service" --no-pager
+    echo
+done
+echo -e "--------------------------------------------------------------\n"
+echo "Zombie processes:"
+echo "--------------------------------------------------------------"
+ps aux | awk '$8=="Z" || $8=="Z+"'
+echo -e "--------------------------------------------------------------\n"
+echo "Top 5 CPU consuming processes:"
+echo "--------------------------------------------------------------"
+ps -eo pid,user,%cpu,%mem,cmd --sort=-%cpu | head -n 6
+echo -e "--------------------------------------------------------------\n"
 
 echo "======================================================"
 echo "==================NETWORK AND REACHABILITY===================="
