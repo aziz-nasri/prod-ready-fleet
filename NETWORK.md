@@ -87,4 +87,41 @@ dnsmasq was chosen over a full DNS server (BIND9) or static /etc/hosts files for
 
 Disabling upstream forwarding is a deliberate security choice. hosts on the internal zone have no legitimate reason to resolve public domains, since they never initiate outbound connections to the internet by design (only srv1's DMZ leg faces the internet).
 
+## Firewall
 
+Each server runs its own host-based firewall (nftables). Rules are scoped to the narrowest source that's appropriate for that path: a single trusted host where the source is a fixed, non-interchangeable role (e.g. the proxy), and a subnet where the source is a scalable tier of interchangeable hosts (e.g. the app tier). Every chain ends in a default-deny policy only what's explicitly listed below is reachable.
+
+### srv1 (proxy / NAT gateway)
+
+| Direction | Source | Destination | Port | Proto | Rule |
+| ------ | ------ |------ |------ |------ |------ |
+|Inbound|Internet (any)|srv1 DMZ leg|80, 443|TCP|Allow|
+|Inbound|Management subnet|	srv1 internal leg|2307|TCP|Allow|
+|Inbound|Anything else|srv1 (any interface)|-|-|Deny (default)|
+|Forward|App tier + Data tier|Internet (via NAT)|80, 443|TCP|Allow|
+|Forward|Anything else|Internet|-|-|Deny (default)|
+
+NAT masquerade applied on the internet-facing interface for the allowed forward path only.
+
+### srv2 (app tier)
+
+| Direction | Source | Destination | Port | Proto | Rule |
+|---|---|---|---|---|---|
+| Inbound | Management subnet | srv2 | 22 | TCP | Allow |
+| Inbound | srv1 (proxy IP only) | srv2 | 8080 | TCP | Allow |
+| Inbound | Anything else | srv2 | - | - | Deny (default) |
+| Outbound | srv2 | Data tier subnet | 5432 | TCP | Allow |
+| Outbound | srv2 | Data tier subnet | 53 | TCP + UDP | Allow |
+| Outbound | srv2 | Internet | 80, 443 | TCP | Allow |
+| Outbound | srv2 | Anything else | - | - | Deny (default) |
+
+### srv3 (data tier, database + DNS)
+
+| Direction | Source | Destination | Port | Proto | Rule |
+|---|---|---|---|---|---|
+| Inbound | Management subnet | srv3 | 22 | TCP | Allow |
+| Inbound | App tier subnet | srv3 | 5432 | TCP | Allow |
+| Inbound | App tier subnet | srv3 | 53 | TCP + UDP | Allow |
+| Inbound | srv1 (gateway IP only) | srv3 | 53 | TCP + UDP | Allow |
+| Inbound | Anything else | srv3 | - | - | Deny (default) |
+| Outbound | srv3 | Anything | - | - | Deny (default - no outbound need; DNS forwarding disabled) |
