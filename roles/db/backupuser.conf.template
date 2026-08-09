@@ -1,0 +1,7 @@
+USERNAME=""
+HOME_DIR=""
+SHELL=""
+FUllNAME=""
+GROUPS=""
+TMP_PASSWD="" # "yes" if want to set a temporary password, force change on first login.
+SET_SSH=""  # "yes" if you want to set ssh.

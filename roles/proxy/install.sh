@@ -67,7 +67,7 @@ sudo tee /etc/nginx/sites-enabled/myapp << EFO
 server {
     listen 80;
     listen [::]:80;
-    server_name ${PROXY_HOST_NAME}; 
+    server_name ${PROXY_IP}; 
 
     return 301 https://$host$request_uri;
 }
@@ -75,7 +75,7 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name ${PROXY_HOST_NAME};
+    server_name ${PROXY_IP};
 
     # ----- SSL (lab can use self-signed) -----
     ssl_certificate     /etc/nginx/ssl/proxy.crt;
