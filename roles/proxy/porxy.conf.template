@@ -1,0 +1,14 @@
+# Network config
+INTERFACES=("" "" "")
+MODES=("" "" ")
+ADDRESSES=("" "" "")
+DEFAULT_ROUTE_IFACE=""
+DEFAULT_ROUTE_VIA=""
+DNS_SERVERS=("1")
+TO_CLOSE_PORTS=("")
+
+# nginx config
+PROXY_IP=""
+APP_IP=""
+APP_PORT=""
+NGINX_CONF=""
