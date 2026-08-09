@@ -87,6 +87,10 @@ dnsmasq was chosen over a full DNS server (BIND9) or static /etc/hosts files for
 
 Disabling upstream forwarding is a deliberate security choice. hosts on the internal zone have no legitimate reason to resolve public domains, since they never initiate outbound connections to the internet by design (only srv1's DMZ leg faces the internet).
 
+**Why both TCP and UDP, not just one**
+
+UDP 53 is the default and by far the most common case. nearly every DNS query and response fits in a single UDP packet. TCP 53 is the fallback DNS uses automatically when a response is too large for a single UDP packet.
+
 ## Firewall
 
 Each server runs its own host-based firewall (nftables). Rules are scoped to the narrowest source that's appropriate for that path: a single trusted host where the source is a fixed, non-interchangeable role (e.g. the proxy), and a subnet where the source is a scalable tier of interchangeable hosts (e.g. the app tier). Every chain ends in a default-deny policy only what's explicitly listed below is reachable.
@@ -125,3 +129,21 @@ NAT masquerade applied on the internet-facing interface for the allowed forward 
 | Inbound | srv1 (gateway IP only) | srv3 | 53 | TCP + UDP | Allow |
 | Inbound | Anything else | srv3 | - | - | Deny (default) |
 | Outbound | srv3 | Anything | - | - | Deny (default - no outbound need; DNS forwarding disabled) |
+
+**Explicit denies**
+
+These are consequences of the default-deny policy, not separate rules, but are called out here because they're the properties the whole design exists to guarantee:
+
+ - DMZ → Data tier is never permitted, at any port. srv1's internal leg is deliberately excluded from the app-tier subnet range so it cannot inherit the subnet-wide database rule; its only permitted path to srv3 is the narrow DNS-only rule above.
+
+  - App tier → DMZ inbound is never permitted. srv2 has no rule allowing connections initiated toward srv1's DMZ leg.
+
+  - Data tier has no outbound path. srv3 never initiates connections it only answers on the ports explicitly allowed inbound.
+
+ - Nothing outside the management subnet can reach SSH on any host, including the DMZ leg — SSH is only listened for on internal-facing interfaces.
+
+
+**Design principle**
+
+Rules scoped to a single IP (srv1 → srv2) represent a fixed, specifically-trusted host that should never gain broader access just by sharing a subnet with a scalable tier. Rules scoped to a subnet (app tier → data tier) represent a tier of interchangeable hosts, where adding a new member should require no firewall changes anywhere else in the fleet. Any host acting as a gateway between zones (srv1) is addressed outside both tiers it bridges, specifically so it cannot silently inherit tier-wide permissions it wasn't designed to have.
+
