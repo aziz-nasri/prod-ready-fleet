@@ -11,9 +11,15 @@ else
     echo "ERROR: nginx is down."
 fi 
 
-echo "TLS cert: $(openssl x509 -enddate -noout)"
+echo -e "Cert TLS check:\n"
+if openssl x509 -checkend $((DAYS * 86400)) -noout -in "$CERT"; then
+    echo "Certificate is valid for at least $DAYS more days"
+else
+    echo "WARNING: Certificate expires in less than $DAYS days!"
+fi
 
-ping -c 3 10.0.20.65 &> /dev/null
+echo "Check backend is reachable:"
+ping -c 3 $APP_IP &> /dev/null
 if [[ $? -ep 0 ]]; then
     echo "Backend is reachable."
 else

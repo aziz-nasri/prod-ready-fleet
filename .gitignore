@@ -19,4 +19,6 @@ firewall/firewall.conf
 # app health config
 roles/app/health.conf
 
+# proxy health config
+roles/proxy/health.conf
 
