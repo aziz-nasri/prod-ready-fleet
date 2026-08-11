@@ -103,4 +103,10 @@ fi
 # logging 
 sudo journalclt -u $SERVICE_FILE &> /dev/null
 
-
+# adding health check script
+sudo mkdir ~/health-check > /dev/null
+sudo chown admin:admin ~/health-check > /dev/null
+sudo chmod 550 ~/health-check > /dev/null
+cp ../../common/health-check.sh ~/health-check > /dev/null
+cp health-extra.sh ~/health-check > /dev/null
+cp health.conf ~/health-check > /dev/null

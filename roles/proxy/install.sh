@@ -194,3 +194,11 @@ sudo ln -s /etc/nginx/sites-available/myapp /etc/nginx/sites-enabled/ > /dev/nul
 sudo rm -f /etc/nginx/sites-enabled/default > /dev/null
 sudo nginx -t || die "Wrong nginx syntax please recheck." > /dev/null
 sudo systemctl reload nginx > /dev/null
+
+# adding health check script
+sudo mkdir ~/health-check > /dev/null
+sudo chown admin:admin ~/health-check > /dev/null
+sudo chmod 550 ~/health-check > /dev/null
+cp ../../common/health-check.sh ~/health-check > /dev/null
+cp health-extra.sh ~/health-check > /dev/null
+cp health.conf ~/health-check > /dev/null

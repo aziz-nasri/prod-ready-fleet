@@ -196,21 +196,26 @@ pkg_install rsync
 sudo sed -i "s/SOURCE_FILE_PLACEHOLDER/${PG_CONF_DIR}/" backup.service &> /dev/null
 
 # Copy the script
-sudo cp backup.sh /usr/local/bin/
-suod chown backup /usr/local/bin/backup.sh
-sudo chmod 500 /usr/local/bin/backup.sh
+sudo cp backup.sh /usr/local/bin/ > /dev/null
+suod chown backup /usr/local/bin/backup.sh > /dev/null
+sudo chmod 500 /usr/local/bin/backup.sh > /dev/null
 
 # Copy the units
-sudo cp backup.service backup.timer /etc/systemd/system/
+sudo cp backup.service backup.timer /etc/systemd/system/ > /dev/null
 
 # Create directories
-sudo mkdir -p /var/backups/myapp
-sudo chown backup /var/backups/myapp
-sudo chmod 700 /var/backups/myapp
+sudo mkdir -p /var/backups/myapp > /dev/null
+sudo chown backup /var/backups/myapp > /dev/null
+sudo chmod 700 /var/backups/myapp > /dev/null
 
 # Enable and start the timer
-sudo systemctl daemon-reload
-sudo systemctl enable --now backup.timer
+sudo systemctl daemon-reload > /dev/null
+sudo systemctl enable --now backup.timer > /dev/null
 
-
-
+# adding health check script
+sudo mkdir ~/health-check > /dev/null
+sudo chown admin:admin ~/health-check > /dev/null
+sudo chmod 550 ~/health-check > /dev/null
+cp ../../common/health-check.sh ~/health-check > /dev/null
+cp health-extra.sh ~/health-check > /dev/null
+cp health.conf ~/health-check > /dev/null
