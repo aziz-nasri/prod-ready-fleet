@@ -39,3 +39,12 @@ if [[ $? -ep 0 ]]; then
 else
     echo "ERROR: masquerade rule is not present in the firewall.."
 fi 
+
+echo -e "\n======================================================"
+echo "==================LOGS AND ERORRS===================="
+echo -e "======================================================\n"
+# nginx recent logs
+echo -e "\nRecent nginx service logs:"
+echo "--------------------------------------------------------------"
+sudo jornalctl nginx | head -n 30
+echo -e "--------------------------------------------------------------\n"

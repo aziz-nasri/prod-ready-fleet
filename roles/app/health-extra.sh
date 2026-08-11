@@ -32,3 +32,12 @@ if (( percent >= THRESHOLD )); then
 else
     echo "OK: ${SERVICE} Memory usage is under the Threshold."
 fi
+
+echo -e "\n======================================================"
+echo "==================LOGS AND ERORRS===================="
+echo -e "======================================================\n"
+# app.service recent logs
+echo "Recent myapp service logs:"
+echo "--------------------------------------------------------------"
+sudo jornalctl app.service | head -n 30
+echo -e "--------------------------------------------------------------\n"

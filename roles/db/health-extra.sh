@@ -44,3 +44,17 @@ if [[ $(find "$NEWEST_FILE" -mmin +$((MAX_AGE_DAYS * 1440)) ) ]]; then
 else
   echo "OK: Backup is recent: $NEWEST_FILE"
 fi
+
+echo -e "\n======================================================"
+echo "==================LOGS AND ERORRS===================="
+echo -e "======================================================\n"
+# postgresql recent logs
+echo "Recent postgresql service logs:"
+echo "--------------------------------------------------------------"
+sudo jornalctl postgresql | head -n 30
+echo -e "--------------------------------------------------------------\n"
+# dnsmasq recent logs
+echo "Recent dnsmasq service logs:"
+echo "--------------------------------------------------------------"
+sudo jornalctl dnsmasq | head -n 30
+echo -e "--------------------------------------------------------------\n"
