@@ -22,3 +22,5 @@ roles/app/health.conf
 # proxy health config
 roles/proxy/health.conf
 
+# db health config
+roles/db/health.conf

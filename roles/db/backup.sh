@@ -53,12 +53,12 @@ fi
 # Create backup
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
 BASENAME="${PREFIX}_${TIMESTAMP}"
-TMP_BACKUP="${BACKUP_DIR}/${BASENAME}.tmp.d"
+TMP_BACKUP="${BACKUP_DIR}/${BASENAME}.tmp.d/"
 
 log "INFO" "Starting backup of $SOURCE_FILE (running as $(whoami))"
 
 # Copy the database file
-cp -a "$SOURCE_FILE" "${TMP_BACKUP}/"
+cp -a "$SOURCE_FILE" "${TMP_BACKUP}"
 
 if [[ "$COMPRESS" == "true" ]]; then
     tar -cJf "${BASENAME}.xz" "${TMP_BACKUP}/"

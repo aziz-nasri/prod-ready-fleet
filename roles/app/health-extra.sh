@@ -6,13 +6,13 @@ source health.conf
 echo -e "Data tier reachability:\n"
 nc -zv $DATA_IP $DATA_PORT &> /dev/null
 if [[ $? -ep 0 ]]; then
-    echo "Database server is reachable through port ${DATA_PORT}"
+    echo "OK: Database server is reachable through port ${DATA_PORT}"
 else
     echo "ERROR: Database server is not reachable through port ${DATA_PORT}."
 fi
 nc -zv $DNS_IP $DNS_PORT &> /dev/null
 if [[ $? -ep 0 ]]; then
-    echo "DNS is reachable through port ${DNS_PORT}."
+    echo "OK: DNS is reachable through port ${DNS_PORT}."
 else
     echo "ERROR: DNS is not reachable through port ${DNS_PORT}."
 fi
@@ -30,5 +30,5 @@ echo "Memory usage: $percent% ($current / $max bytes)"
 if (( percent >= THRESHOLD )); then
     echo "WARNING: $SERVICE is at ${percent}% of MemoryMax!"
 else
-    echo "${SERVICE} Memory usage is under the Threshold."
+    echo "OK: ${SERVICE} Memory usage is under the Threshold."
 fi
