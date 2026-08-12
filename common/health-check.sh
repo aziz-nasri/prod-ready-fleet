@@ -28,7 +28,7 @@ echo "Swap usage:"
 echo "--------------------------------------------------------------"
 free -h | awk 'NR==1 || NR==3'
 echo -e "--------------------------------------------------------------\n"
-echo "Disk usage: $(df -h / | awk 'NR==2 {print $5}' | tr -d "%")%"
+echo "Disk usage: $(df -h / | awk 'NR==2 {print $5}')"
 echo "--------------------------------------------------------------"
 df -h
 echo -e "--------------------------------------------------------------\n"
@@ -46,7 +46,7 @@ echo "==================SERVICES AND PROCESSES===================="
 echo -e "======================================================\n"
 echo "Critical services status:"
 echo "--------------------------------------------------------------"
-for service in "${services[@]}"; do
+for service in "${SERVICES[@]}"; do
     echo "=== $service ==="
     sudo systemctl is-active "$service"
     sudo systemctl is-enabled "$service"

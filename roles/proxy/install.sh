@@ -4,7 +4,6 @@ set -euo pipefail
 source "$(dirname "$0")/../../common/lib.sh"
 source proxy.conf
 require_root
-check_connectivity
 require_cmd netplan
 trap trap_cleanup EXIT
 
@@ -62,7 +61,7 @@ sudo systemctl enable --now nginx > /dev/null
 sudo systemctl start nginx > /dev/null
 
 # configuring nginx
-sudo tee /etc/nginx/sites-enabled/myapp << EFO
+sudo tee /etc/nginx/sites-available/myapp << EFO
 # Redirect HTTP to HTTPS
 server {
     listen 80;
