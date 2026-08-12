@@ -18,3 +18,12 @@ roles/proxy/proxy.conf
 
 # firewall configurations
 firewall/firewall.conf
+
+# proxy health check config
+roles/proxy/health.conf
+
+# apphealth check config
+roles/app/health.conf
+
+# db health check config
+roles/db/health.conf
