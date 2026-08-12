@@ -1,0 +1,6 @@
+SERVICE="" # application service file
+THRESHOLD="" # memory percentage threshold
+DATA_IP="" # database server IP address
+DATA_PORT="" # Database connection port
+DNS_IP="" # DNS server port
+DNS_PORT="" # DNS connection port

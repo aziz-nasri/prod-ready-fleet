@@ -1,0 +1,3 @@
+CERT="" # certificate full path
+DAYS= # days to check on for certificate validation
+APP_IP="" # application server IP address

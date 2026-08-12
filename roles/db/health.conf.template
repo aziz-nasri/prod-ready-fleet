@@ -1,0 +1,4 @@
+DATA_IP="" # Database server IP address
+APP_DOMAIN="" # Application server domain name
+BACKUP_DIR="" # full path of the Database backup folder
+MAX_AGE_DAYS= #how many days old the newest backup should not exceed
