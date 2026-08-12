@@ -1,0 +1,22 @@
+# Network configuration
+INTERFACES=("")
+MODES=(")
+ADDRESSES=("")
+DEFAULT_ROUTE_IFACE=""
+DEFAULT_ROUTE_VIA=""
+DNS_SERVERS=("")
+TO_CLOSE_PORTS=("")
+
+# postgresql configuration
+LISTEN_IP=""
+APP_IP=""
+DB_NAME=""
+DB_USER=""
+APPUSER_PASSWD=""
+PORT=""
+
+# Memory settings
+SHARED_BUFFERS=""
+EFFECTIVE_CACHE_SIZE=""
+WORK_MEM=""
+MAINTENANCE_WORK_MEM=""
