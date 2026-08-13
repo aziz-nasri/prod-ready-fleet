@@ -9,7 +9,7 @@ trap trap_cleanup EXIT
 
 
 # Network configuration
-
+[[ -f /etc/netplan/01-netcfg.yaml ]] || die "Netplan file was not found"
 NETPLAN_FILE="/etc/netplan/01-netcfg.yaml"
 
 [[ ${#INTERFACES[@]} -gt 0 ]] || die "No interfaces defined in app.conf"
@@ -45,15 +45,16 @@ generate_netplan_yaml() {
  # moving it to destanation
 backup_file "$NETPLAN_FILE"
 
-log_info "Writing new netplan config to $NETPLAN_FILE"
+log_info "Writing new netplan config to ${NETPLAN_FILE}..."
 generate_netplan_yaml | tee "$NETPLAN_FILE" > /dev/null
 chmod 600 "$NETPLAN_FILE"
 
  # appling changes
-log_info "Applying netplan configuration"
+log_info "Applying netplan configuration..."
 netplan apply
-
+log_info "netpaln configuration applied."
  # closing unecessary listening ports 
+log_info "Closing ports..."
 close_ports $TO_BE_ClOSED_PORTS
 
 # Runtime & process management
@@ -63,7 +64,8 @@ close_ports $TO_BE_ClOSED_PORTS
 log_info "Appuser created."
 
  # creating the app.service
- if [[ ! -f $SERVICE_FILE ]]; then
+log_info "creating the application service..."
+if [[ ! -f $SERVICE_FILE ]]; then
 sudo tee "$SERVICE_FILE" > /dev/null <<EOF
 [Unit]
 Description=${APP_NAME} application server
@@ -90,19 +92,26 @@ ReadWritePaths=${APP_DIR}
 WantedBy=multi-user.target
 EOF
 
-sudo systemctl deamon-reload &> /dev/null
-sudo systemctl enable --now $SERVICE_FILE &> /dev/null
-sudo systemctl start $SERVICE_FILE &> /dev/null
+sudo systemctl deamon-reload > /dev/null
+sudo systemctl enable --now $SERVICE_FILE > /dev/null
+sudo systemctl start $SERVICE_FILE > /dev/null
 log_info "application service file created and running."
 
-sudo chown $APP_USER:$APP_USER $APP_DIR/.env &> /dev/null
-sudo chmod 600 $APP_DIR/.env &> /dev/null
+sudo chown $APP_USER:$APP_USER $APP_DIR/.env > /dev/null
+sudo chmod 600 $APP_DIR/.env > /dev/null
+log_info "Application service created."
+else
+  log_warn "Application service already exsit."
 fi
 
 # logging 
 sudo journalclt -u $SERVICE_FILE > /dev/null
 
 # adding health check script
+log_info "adding health check scripts and cron job..."
+if [[ -d ~/health-check && -f ~/health-check/health-check.sh && -f ~/health-check/health-extra.sh  ]]; then
+    log_warn "Health checks already exsit."
+else
 sudo mkdir ~/health-check > /dev/null
 sudo chown admin:admin ~/health-check > /dev/null
 sudo chmod 550 ~/health-check > /dev/null
@@ -111,3 +120,5 @@ cp health-extra.sh ~/health-check > /dev/null
 cp health.conf ~/health-check > /dev/null
 # adding a cron job
 (crontab -l 2>/dev/null; echo "30 9 * * * admin ~/health-check/health-check.sh > var/log/health-check<$(date)>.log") | sudo crontab -
+log_info "health check added successfully."
+fi

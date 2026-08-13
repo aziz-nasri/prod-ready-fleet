@@ -9,9 +9,10 @@ trap trap_cleanup EXIT
 
 # Network configuration
 
+[[ -f /etc/netplan/01-netcfg.yaml ]] || die "Netplan file was not found"
 NETPLAN_FILE="/etc/netplan/01-netcfg.yaml"
 
-[[ ${#INTERFACES[@]} -gt 0 ]] || die "No interfaces defined in app.conf"
+[[ ${#INTERFACES[@]} -gt 0 ]] || die "No interfaces defined in proxy.conf"
 
  # generating the netplan file
 generate_netplan_yaml() {
@@ -44,15 +45,17 @@ generate_netplan_yaml() {
  # moving it to destanation
 backup_file "$NETPLAN_FILE"
 
-log_info "Writing new netplan config to $NETPLAN_FILE"
+log_info "Writing new netplan config to ${NETPLAN_FILE}..."
 generate_netplan_yaml | tee "$NETPLAN_FILE" > /dev/null
-chmod 600 "$NETPLAN_FILE"
+chmod 600 "$NETPLAN_FILE" > /dev/null
 
  # appling changes
-log_info "Applying netplan configuration"
+log_info "Applying netplan configuration..."
 netplan apply
+log_info "netpaln configuration applied."
 
- # closing unecessary listening ports 
+ # closing unecessary listening ports
+log_info "closing Ports..."
 close_ports $TO_BE_ClOSED_PORTS
 
 # installing nginx
@@ -60,7 +63,12 @@ pkg_install nginx
 sudo systemctl enable --now nginx > /dev/null
 sudo systemctl start nginx > /dev/null
 
+
 # configuring nginx
+log_info "Adding nginx configurations..."
+if [[ -f /etc/nginx/sites-available/myapp ]]; then
+    log_warn "Application nginx config file already exsit."
+else
 sudo tee /etc/nginx/sites-available/myapp << EFO
 # Redirect HTTP to HTTPS
 server {
@@ -118,6 +126,10 @@ server {
     return 444;   # drop connections with no matching/unexpected Host header
 }
 EFO
+
+sudo ln -s /etc/nginx/sites-available/myapp /etc/nginx/sites-enabled/ > /dev/null
+sudo rm -f /etc/nginx/sites-enabled/default > /dev/null
+fi
 
 # adding the server tokens off and the rate limiter in nginx.conf
 if [[ ! -f "$NGINX_CONF" ]]; then
@@ -189,12 +201,15 @@ BEGIN {
 cp "$TMP_FILE" "$NGINX_CONF"
 fi
 
-sudo ln -s /etc/nginx/sites-available/myapp /etc/nginx/sites-enabled/ > /dev/null
-sudo rm -f /etc/nginx/sites-enabled/default > /dev/null
 sudo nginx -t || die "Wrong nginx syntax please recheck." > /dev/null
-sudo systemctl reload nginx > /dev/null
+sudo systemctl restart nginx > /dev/null
+log_info "nginx configured successfully"
 
 # adding health check script
+log_info "adding health check scripts and cron job..."
+if [[ -d ~/health-check && -f ~/health-check/health-check.sh && -f ~/health-check/health-extra.sh  ]]; then
+    log_warn "Health checks already exsit."
+else
 sudo mkdir ~/health-check > /dev/null
 sudo chown admin:admin ~/health-check > /dev/null
 sudo chmod 550 ~/health-check > /dev/null
@@ -203,3 +218,5 @@ cp health-extra.sh ~/health-check > /dev/null
 cp health.conf ~/health-check > /dev/null
 # adding a cron job
 (crontab -l 2>/dev/null; echo "30 9 * * * admin ~/health-check/health-check.sh > var/log/health-check<$(date)>.log") | sudo crontab -
+log_info "health check added successfully."
+fi

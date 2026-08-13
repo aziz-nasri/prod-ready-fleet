@@ -22,6 +22,7 @@ ask_add_job(){
 }
 
 # System upadte
+log_info "Setting up automatic system update..."
 pkg_install unattended-upgrades
 sudo dpkg-reconfigure -plow unattended-upgrades > /dev/null
  # adding cron job for automatic system unpdate
@@ -29,15 +30,17 @@ ask_add_job
  # keeping time accurate
 pkg_install chrony
 sudo systemctl enable --now chrony > /dev/null
+log_info "Automatic system update is set up."
 
 # Minimazing the attack surface.
  # remove unused packages
-
+log_info "Removing unused packages..."
 sudo apt autoremove --purge > /dev/null
 sudo apt clean > /dev/null
 log_info "removed unused packages."
 
 # SSH hardening.
+log_info "Hardenig SSH..."
 pkg_install ssh
  # creating a backup to rollback if somthing goes wrong.
 sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.$(date +%s) > /dev/null
@@ -51,10 +54,11 @@ sudo sed -i 's/^#\?Port 22.*/Port 2307/' /etc/ssh/sshd_config > /dev/null
 sudo systemctl enable --now ssh > /dev/null
 sudo systemctl start ssh > /dev/null
 sudo systemctl restart sshd > /dev/null
+log_info "SSH hardening applied."
 
 
 # Firewall.
-
+log_info "Adding firewall (default deny all)..."
 pkg_install nftables
 
 sudo systemctl enable --now nftables > /dev/null
@@ -69,3 +73,4 @@ if [[ -n $(sudo grep "table inet filter" etc/nftables.conf) ]]; then
 
     sudo nft -f /etc/nftables.conf > /dev/null
 fi
+log_info "Firewall added."
