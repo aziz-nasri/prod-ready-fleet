@@ -218,3 +218,5 @@ sudo chmod 550 ~/health-check > /dev/null
 cp ../../common/health-check.sh ~/health-check > /dev/null
 cp health-extra.sh ~/health-check > /dev/null
 cp health.conf ~/health-check > /dev/null
+# adding a cron job
+(crontab -l 2>/dev/null; echo "30 9 * * * admin ~/health-check/health-check.sh > var/log/health-check<$(date)>.log") | sudo crontab -
