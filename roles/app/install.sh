@@ -4,7 +4,6 @@ set -euo pipefail
 source "$(dirname "$0")/../../common/lib.sh"
 source ./app.conf
 require_root
-check_connectivity
 require_cmd netplan
 trap trap_cleanup EXIT
 
@@ -101,7 +100,7 @@ sudo chmod 600 $APP_DIR/.env &> /dev/null
 fi
 
 # logging 
-sudo journalclt -u $SERVICE_FILE &> /dev/null
+sudo journalclt -u $SERVICE_FILE > /dev/null
 
 # adding health check script
 sudo mkdir ~/health-check > /dev/null

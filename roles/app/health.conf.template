@@ -4,3 +4,6 @@ DATA_IP="" # database server IP address
 DATA_PORT="" # Database connection port
 DNS_IP="" # DNS server port
 DNS_PORT="" # DNS connection port
+DISK_THRES= # persentage of used disk threshold
+MEM_THRES= # persentage of memory used threshold
+CPU_THRES= # persentage of idle cpu threshold

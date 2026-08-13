@@ -3,7 +3,6 @@
 set -euo pipefail
 source "$(dirname "$0")/../../common/lib.sh"
 require_root
-check_connectivity
 require_cmd netplan
 trap trap_cleanup EXIT
 
@@ -58,7 +57,7 @@ close_ports $TO_BE_ClOSED_PORTS
 
 # setting up Postgresql
  # installig the package
-sudo apt update &> /dev/null
+sudo apt update > /dev/null
 pkg_install postgresql
 pkg_install postgresql-contrib
 log_info "postgresql installed."
@@ -146,17 +145,17 @@ EOF
 
 
 # enabling postgresql
-sudo systemctl enable --now postgresql &> /dev/null
-sudo systemctl start postgresql
+sudo systemctl enable --now postgresql > /dev/null
+sudo systemctl start postgresql > /dev/null
 
 # installing dnsmasq
 pkg_install dnsmasq
 
 # disabling existing resolvers
-sudo systemctl stop systemd-resolved &> /dev/null
-sudo systemctl disable systemd-resolved &> /dev/null
-sudo rm -f /etc/resolv.conf &> /dev/null
-echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf  &> /dev/null
+sudo systemctl stop systemd-resolved > /dev/null
+sudo systemctl disable systemd-resolved > /dev/null
+sudo rm -f /etc/resolv.conf > /dev/null
+echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf  > /dev/null
 
 # Make sure the main config reads the directory
 grep -q 'conf-dir=/etc/dnsmasq.d' /etc/dnsmasq.conf || \

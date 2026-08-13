@@ -18,17 +18,36 @@ echo -e "======================================================\n"
 echo "Load average: $(uptime | cut -d"," -f3)"
 echo "CPU usage:"
 echo "--------------------------------------------------------------"
-sar -u 1 7
+CPU=$(sar -u 1 7)
+IDL_CPU=$($CPU | grep -i "average" | awk '{print $8}')
+echo "$CPU"
+if [[ $IDL_CPU < $CPU_THRES ]]; then
+    echo "WARNING: CPU usage is almost full!"
+else
+    echo "OK: CPU usage is good."
+fi
 echo -e "--------------------------------------------------------------\n"
 echo "Memory usage:"
 echo "--------------------------------------------------------------"
 free -h | awk 'NR <= 2'
+AVAILABLE=$(free -m | awk '/Mem:/ {print $7}')
+if [[ $AVAILABLE < $MEM_THRES ]]; then
+    echo "WARNING: Available memory is low, ${AVAILABLE} MB."
+else
+    echo "OK: Sufficient memory available"
+fi
 echo -e "--------------------------------------------------------------\n"
 echo "Swap usage:"
 echo "--------------------------------------------------------------"
 free -h | awk 'NR==1 || NR==3'
 echo -e "--------------------------------------------------------------\n"
-echo "Disk usage: $(df -h / | awk 'NR==2 {print $5}')"
+DISK_USG=$(df -h / | awk 'NR==2 {print $5}')
+echo "Disk usage: ${DISK_USG}"
+if [[ $($DISK_USG | tr -d '%') > $DISK_THRES ]]; then
+    echo "WARNING: Available Disk is low, ${DISK_USG}."
+else
+    echo "OK: Sufficient Disk available"
+fi
 echo "--------------------------------------------------------------"
 df -h
 echo -e "--------------------------------------------------------------\n"
@@ -79,7 +98,14 @@ sudo ss -ltun
 echo -e "--------------------------------------------------------------\n"
 echo "Firewall ruleset:"
 echo "--------------------------------------------------------------"
-sudo nft list ruleset | grep -q .
+if ! command -v nft &>/dev/null; then
+  echo "ERROR: nftables is not installed (nft command not found)."
+fi
+if nft list ruleset 2>/dev/null | grep -qE '^\s+[0-9]+\s+'; then
+  echo "OK: Firewall rules are configured (nftables)."
+else
+  echo "ERROR: No firewall rules found in nftables."
+fi
 echo -e "--------------------------------------------------------------\n"
 
 # runnig server specific health check
