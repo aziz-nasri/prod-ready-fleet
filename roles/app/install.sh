@@ -57,13 +57,34 @@ log_info "netpaln configuration applied."
 log_info "Closing ports..."
 close_ports $TO_BE_ClOSED_PORTS
 
-# Runtime & process management
+# deploying the application.
+log_info "Deploying the application..."
+# Step 1: system packages
+log_info "Installing required packages..."
+apt-get update -qq > /dev/null
+pkg_install python3 python3-venv python3-pip > /dev/null
 
- # creating the application user.
+# Step 2: creating the application user.
+if id "$APP_USER" &>/dev/null; then
+  log_info "User $APP_USER already exists, skipping"
+else
+log_info "Creating app user..."
 ../../common/user_provi.sh appuser.conf
+mkdir -p "$APP_DIR"  > /dev/null
+chown "$APP_USER:$APP_USER" "$APP_DIR" > /dev/null
 log_info "Appuser created."
+fi
 
- # creating the app.service
+#Step 3: app code.
+log_info "Deploying application code..."
+cp "$SCRIPT_DIR/app.py" "$APP_DIR/app.py" > /dev/null
+cp "$SCRIPT_DIR/requirements.txt" "$APP_DIR/requirements.txt" > /dev/null
+chown "$APP_USER:$APP_USER" "$APP_DIR/app.py" "$APP_DIR/requirements.txt" > /dev/null
+log_info "Finished deploying app code."
+
+
+
+# Step 3: creating the app.service
 log_info "creating the application service..."
 if [[ ! -f $SERVICE_FILE ]]; then
 sudo tee "$SERVICE_FILE" > /dev/null <<EOF
