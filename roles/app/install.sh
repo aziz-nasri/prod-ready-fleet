@@ -82,7 +82,48 @@ cp "$SCRIPT_DIR/requirements.txt" "$APP_DIR/requirements.txt" > /dev/null
 chown "$APP_USER:$APP_USER" "$APP_DIR/app.py" "$APP_DIR/requirements.txt" > /dev/null
 log_info "Finished deploying app code."
 
+# Step 4: virtualenv + dependencies
+log_info "setting up virtualenv and dependecies..."
+if [[ -x "$VENV_DIR/bin/python" ]]; then
+  log_info "Virtualenv already exists, skipping creation"
+else
+  log_info "Creating virtualenv"
+  python3 -m venv "$VENV_DIR" > /dev/null
+  chown -R "$APP_USER:$APP_USER" "$VENV_DIR" > /dev/null
+fi
+log_info "Installing Python dependencies"
+sudo -u "$APP_USER" "$VENV_DIR/bin/pip" install --quiet --upgrade pip > /dev/null
+sudo -u "$APP_USER" "$VENV_DIR/bin/pip" install --quiet -r "$APP_DIR/requirements.txt" > /dev/null
+log_info "Finished setting up."
 
+# Step 5: environment file
+log_info "setting up environment file..."
+if [[ -f "$ENV_FILE" ]]; then
+  log_info ".env already present, leaving existing values in place"
+else
+  log_info "Writing default .env"
+  cat > "$ENV_FILE" <<EOF
+DB_HOST=$DB_HOST
+DB_NAME=$DB_NAME
+DB_USER=$DB_USER
+DB_PASSWORD=$DB_PASSWORD
+EOF
+fi
+chown "$APP_USER:$APP_USER" "$ENV_FILE"
+chmod 600 "$ENV_FILE"
+log_info "Finished setting up."
+
+# Step 6: database schema
+log_info "Ensuring notes table exists..."
+source "$ENV_FILE"
+PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'EOF'
+CREATE TABLE IF NOT EXISTS notes (
+    id SERIAL PRIMARY KEY,
+    text TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+EOF
+log_info "notes table exists."
 
 # Step 3: creating the app.service
 log_info "creating the application service..."
