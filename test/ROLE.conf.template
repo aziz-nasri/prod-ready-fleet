@@ -1,0 +1,13 @@
+PING_TARGETS=() # List of IP addresses
+PING_SHOULD_FAIL=() # List of IP addresses
+
+ALLOWED_CONNECTIONS=("IP address|port|description")
+DENIED_CONNECTIONS=("IP address|port|description")
+
+SERVICES=() # List of sevices
+PORTS_LISTENING=("port|description")
+
+# role specific checks function
+role_specific_checks() {
+  check "Postgres accepts connections" pg_isready -h 10.0.20.130 # example
+  } 

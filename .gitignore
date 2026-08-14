@@ -24,3 +24,8 @@ roles/proxy/health.conf
 
 # db health config
 roles/db/health.conf
+
+# smoke test configs
+test/proxy.conf
+test/app.conf
+test/db.conf
