@@ -2,11 +2,14 @@
 APP_NAME=""
 APP_USER=""
 APP_DIR=""
+VENV_DIR=""
+ENV_FILE=""
 APP_EXEC=""
 SERVICE_FILE=""
 SERVER_ADDR=""
+APP_PORT=""
 
-Network configuration
+# Network configuration
 INTERFACES=("")
 MODES=("")
 ADDRESSES=("")
@@ -14,3 +17,9 @@ DEFAULT_ROUTE_IFACE=""
 DEFAULT_ROUTE_VIA=""
 DNS_SERVERS=("")
 TO_CLOSE_PORTS=("")
+
+# default .env
+DB_HOST="" # IP address
+DB_NAME=""
+DB_USER=""
+DB_PASSWORD=""

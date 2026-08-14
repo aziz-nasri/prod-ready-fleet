@@ -126,27 +126,28 @@ EOF
 log_info "notes table exists."
 
 # Step 3: creating the app.service
-log_info "creating the application service..."
+log_info "Writing systemd unit"
 if [[ ! -f $SERVICE_FILE ]]; then
 sudo tee "$SERVICE_FILE" > /dev/null <<EOF
 [Unit]
-Description=${APP_NAME} application server
+Description=Application server (Flask + gunicorn)
 After=network.target
-Wants=network-online.target
 
 [Service]
-Type=simple
-User=${APP_USER}
-Group=${APP_USER}
-WorkingDirectory=${APP_DIR}
-ExecStart=${APP_EXEC} --bind ${SERVER_ADDR}:8080
+User=$APP_USER
+Group=$APP_USER
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ENV_FILE
+ExecStart=$VENV_DIR/bin/gunicorn -w 2 -b ${SERVER_ADDR}:${APP_PORT} app:app
 Restart=on-failure
-RestartSec=5
+RestartSec=3
+MemoryMax=512M
+TasksMax=100
 
 # Security hardening
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=strict
+ProtectSystem=full
 ProtectHome=true
 ReadWritePaths=${APP_DIR}
 
@@ -157,14 +158,11 @@ EOF
 sudo systemctl deamon-reload > /dev/null
 sudo systemctl enable --now $SERVICE_FILE > /dev/null
 sudo systemctl start $SERVICE_FILE > /dev/null
-log_info "application service file created and running."
-
-sudo chown $APP_USER:$APP_USER $APP_DIR/.env > /dev/null
-sudo chmod 600 $APP_DIR/.env > /dev/null
-log_info "Application service created."
+log_info "systemd unit created and running."
 else
-  log_warn "Application service already exsit."
+  log_warn "systemd unit already exsit."
 fi
+log_info "Application deployment finished."
 
 # logging 
 sudo journalclt -u $SERVICE_FILE > /dev/null
