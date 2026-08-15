@@ -62,7 +62,7 @@ log_info "Deploying the application..."
 # Step 1: system packages
 log_info "Installing required packages..."
 apt-get update -qq > /dev/null
-pkg_install python3 python3-venv python3-pip > /dev/null
+pkg_install python3 python3-venv python3-pip postgresql-client > /dev/null
 
 # Step 2: creating the application user.
 if id "$APP_USER" &>/dev/null; then
