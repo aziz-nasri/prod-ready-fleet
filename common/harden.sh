@@ -60,6 +60,7 @@ log_info "SSH hardening applied."
 # Firewall.
 log_info "Adding firewall (default deny all)..."
 pkg_install nftables
+pkg_install netplan.io
 
 sudo systemctl enable --now nftables > /dev/null
 

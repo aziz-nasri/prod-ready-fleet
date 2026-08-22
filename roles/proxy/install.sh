@@ -8,7 +8,6 @@ require_cmd netplan
 trap trap_cleanup EXIT
 
 # Network configuration
-
 [[ -f /etc/netplan/01-netcfg.yaml ]] || die "Netplan file was not found"
 NETPLAN_FILE="/etc/netplan/01-netcfg.yaml"
 

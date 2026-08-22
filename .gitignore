@@ -25,6 +25,9 @@ roles/proxy/health.conf
 # db health config
 roles/db/health.conf
 
+# managment bastion config
+roles/managment/mgmt.conf
+
 # smoke test configs
 test/proxy.conf
 test/app.conf

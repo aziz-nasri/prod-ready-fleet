@@ -1,6 +1,6 @@
 ## Network Diagram:
 
-![Screen preview](./fleet_network_diagram_v2_role_based.svg)
+![Screen preview](./fleet_network_diagram_v3_bastion.svg)
 
 ### Why:
 
@@ -10,7 +10,9 @@
 
 - srv2 and srv3 hold the actual logic and the actual data they're the assets worth protecting. they are not meant to face risks niether has any reason to face the internet directly.
 
-- role based subnet layout for scalability.
+- role based subnet layout for better scalability, simplified management and improved security
+
+- Your machine reaches only the mgmt VM; the mgmt VM is the sole thing with SSH access into srv1/srv2/srv3. This narrows the attack surface to one machine instead of many. It also creates a single, consistent point of audit.
 
 ## Subnet layout
 
