@@ -58,6 +58,16 @@ nft add rule inet filter output oif lo accept > /dev/null
 nft add rule inet filter output ct state established,related accept > /dev/null
 sudo nft list ruleset | sudo tee /etc/nftables.conf > /dev/null
 }
+mgmt_fw(){
+nft add chain inet filter output '{ type filter hook output priority 0; policy drop; }' > /dev/null
+
+nft add rule inet filter input iifname $HOST_IF tcp dport $SSH_PORT accept
+nft add rule inet filter output oif lo accept
+nft add rule inet filter output ct state established,related accept
+nft add rule inet filter output oifname $FLEET_IF tcp dport $SSH_PORT accept
+nft add rule inet filter output oifname $HOST_IF tcp dport { $HTTP_PORT, $HTTPS_PORT } accept
+nft add rule inet filter output oifname $HOST_IF udp dport $DNS_PORT accept
+}
 
 if [[ $(hostname | grep -i "proxy") ]]; then
     log_info "Adding firewall rules to the proxy server."
@@ -68,6 +78,9 @@ elif [[ $(hostname | grep -i "app") ]]; then
 elif [[ $(hostname | grep -i "database") ]]; then
     log_info "Adding firewall rules to the database server."
     db_fw
+elif [[ $(hostname | grep -i "mgmt") ]]; then
+    log_info "Adding firewall rules to the management bastion."
+    mgmt_fw
 else
     log_warn "no server detected. no firewall rules applied."
 fi

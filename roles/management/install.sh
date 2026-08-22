@@ -76,4 +76,3 @@ chmod 600 ~/.ssh/config ~/.ssh/lab-fleet > /dev/null
 sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config > /dev/null
 sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config > /dev/null
 sudo systemctl restart sshd > /dev/null
-
