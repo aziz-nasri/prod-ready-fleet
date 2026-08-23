@@ -3,7 +3,6 @@
 set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 require_root
-require_cmd nft
 trap trap_cleanup EXIT
 
 ask_add_job(){
@@ -13,13 +12,17 @@ ask_add_job(){
         read ANS
         if [[ ${ANS^^} -eq "Y" ]]; then
             if [[ -n $(sudo grep -q system_update /etc/crontab) ]]; then
-                sudo echo "0 2 * * 0 admin /usr/bin/system_update.sh" >> /etc/crontab;
+                sudo echo "0 2 * * 0 admin /usr/bin/system_update.sh >> var/log/system-updates.log" >> /etc/crontab;
             fi
         fi
     done
     sudo touch var/log/system-updates.log > /dev/null
     sudo mv system_update.sh /usr/bin/ > /dev/null
 }
+
+# installing the netplan package for network configurations
+log_info "Installing netplan.io package..."
+pkg_install netplan.io
 
 # System upadte
 log_info "Setting up automatic system update..."
@@ -43,13 +46,11 @@ log_info "removed unused packages."
 log_info "Hardenig SSH..."
 pkg_install ssh
  # creating a backup to rollback if somthing goes wrong.
-sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.$(date +%s) > /dev/null
+backup_file /etc/ssh/sshd_config
  # disabling password authentication
 sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config > /dev/null
  # disabling root login
 sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config > /dev/null
- # changing to non-standard port
-sudo sed -i 's/^#\?Port 22.*/Port 2307/' /etc/ssh/sshd_config > /dev/null
 
 sudo systemctl enable --now ssh > /dev/null
 sudo systemctl start ssh > /dev/null
@@ -60,7 +61,6 @@ log_info "SSH hardening applied."
 # Firewall.
 log_info "Adding firewall (default deny all)..."
 pkg_install nftables
-pkg_install netplan.io
 
 sudo systemctl enable --now nftables > /dev/null
 
@@ -72,6 +72,6 @@ if [[ -n $(sudo grep "table inet filter" etc/nftables.conf) ]]; then
     sudo nft add rule inet filter input ip protocol icmp accept > /dev/null
     sudo nft add rule inet filter input ip6 nexthdr icmpv6 accept > /dev/null
 
-    sudo nft -f /etc/nftables.conf > /dev/null
+    sudo nft list ruleset | sudo tee /etc/nftables.conf > /dev/null
 fi
 log_info "Firewall added."

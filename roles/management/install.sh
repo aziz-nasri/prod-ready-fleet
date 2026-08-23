@@ -75,4 +75,5 @@ chmod 600 ~/.ssh/config ~/.ssh/lab-fleet > /dev/null
 # ssh hardening 
 sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config > /dev/null
 sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config > /dev/null
+sudo sed -i 's/^#\?Port 22.*/Port 2307/' /etc/ssh/sshd_config > /dev/null
 sudo systemctl restart sshd > /dev/null

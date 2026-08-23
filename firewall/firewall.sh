@@ -4,7 +4,6 @@ set -euo pipefail
 source "$(dirname "$0")/../common/lib.sh"
 source firewall.conf
 require_root
-check_connectivity
 trap trap_cleanup EXIT
 
 # Proxy server Firewall configurations
@@ -23,7 +22,6 @@ nft add rule inet nat postrouting oifname $NAT_IF masquerade > /dev/null
 
 sudo sysctl -w net.ipv4.ip_forward=1 > /dev/null
 echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/99-fleet-forwarding.conf > /dev/null
-sudo nft list ruleset | sudo tee /etc/nftables.conf > /dev/null
 }
 
 # Application server Firewall configurations
@@ -40,7 +38,6 @@ nft add rule inet filter output ip daddr $DATA_TIER tcp dport $DATABASE_PORT acc
 nft add rule inet filter output ip daddr $DATA_TIER udp dport $DNS_PORT accept > /dev/null
 nft add rule inet filter output ip daddr $DATA_TIER tcp dport $DNS_PORT accept > /dev/null
 nft add rule inet filter output tcp dport { $HTTP_PORT, $HTTPS_PORT } accept > /dev/null
-sudo nft list ruleset | sudo tee /etc/nftables.conf > /dev/null
 }
 
 # Database + DNS server Firewall configurations
@@ -56,7 +53,6 @@ nft add rule inet filter input ip saddr $PROXY_IP tcp dport $DNS_PORT  accept
 nft add chain inet filter output '{ type filter hook output priority 0; policy drop; }' > /dev/null
 nft add rule inet filter output oif lo accept > /dev/null
 nft add rule inet filter output ct state established,related accept > /dev/null
-sudo nft list ruleset | sudo tee /etc/nftables.conf > /dev/null
 }
 mgmt_fw(){
 nft add chain inet filter output '{ type filter hook output priority 0; policy drop; }' > /dev/null
@@ -84,6 +80,8 @@ elif [[ $(hostname | grep -i "mgmt") ]]; then
 else
     log_warn "no server detected. no firewall rules applied."
 fi
+
+sudo nft list ruleset | sudo tee /etc/nftables.conf > /dev/null
 
 log_info "finised adding firewall rules."
 sudo systemctl reload nftables 2>/dev/null

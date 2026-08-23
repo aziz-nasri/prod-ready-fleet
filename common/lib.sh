@@ -35,13 +35,13 @@ file_contains()      { grep -qF "$2" "$1" 2>/dev/null; }
 # package manager wrapper
 pkg_install() {
   for pkg in "$@"; do
-    is_installed "$pkg" || { log_info "Installing $pkg"; apt-get install -y "$pkg"; }
+    is_installed "$pkg" || { log_info "Installing $pkg"; sudo apt-get install -y "$pkg"; }
   done
 }
 
 # safe backup function
 backup_file() {
-  [[ -f "$1" ]] && cp "$1" "$1.bak.$(date +%s)"
+  [[ -f "$1" ]] && sudo cp "$1" "$1.bak.$(date +%s)"
 }
 
 # retry function
