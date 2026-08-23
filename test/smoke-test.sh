@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -uo pipefail   # note: no -e here — we want to run all checks in a layer, not bail on first
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../common/lib.sh"
@@ -34,7 +34,7 @@ check() {
 }
 
 check_negative() {
-  # Passes if the command FAILS — used for "this should be blocked" tests
+  # Passes if the command FAIL
   local desc="$1"; shift
   if ! "$@" &>/dev/null; then
     echo "  [PASS] $desc (correctly blocked)"
