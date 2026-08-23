@@ -32,7 +32,7 @@ network:
         - to: $INT_SUB
           via: $MNG_IP
           scope: link
-EOF
+EOF > /dev/null
 chmod 600 "$NETPLAN_FILE" > /dev/null > /dev/null
 
  # appling changes
