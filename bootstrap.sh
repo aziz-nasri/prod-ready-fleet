@@ -60,7 +60,7 @@ TEST_CONFIG="$SCRIPT_DIR/test/${ROLE}.conf"
 if [[ -f "$TEST_CONFIG" ]]; then
   "$SCRIPT_DIR/test/smoke-test.sh" "$HEALTH_CONFIG" > $LOG_FILE   
 else
-  log_warn "No health.conf found for role $ROLE, skipping health check"
+  log_warn "No ${ROLE}.conf found in the test directory for role $ROLE, skipping Smoke test."
 fi
 log_info "post-install smoke test finished check the log file: ${LOG_FILE}"
 
