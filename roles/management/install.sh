@@ -44,9 +44,6 @@ log_info "netpaln configuration applied."
 log_info "closing Ports..."
 close_ports $TO_BE_ClOSED_PORTS
 
-# SSH set up
-ssh-keygen -t ed25519 -f ~/.ssh/lab-fleet -C "admin@lab-fleet" > /dev/null
-
 [[ -f ~/.ssh/config ]] || die "~/.ssh/config file was not found"
 SSH_CONFIG="~/.ssh/config"
 
