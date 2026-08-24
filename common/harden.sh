@@ -6,18 +6,18 @@ require_root
 trap trap_cleanup EXIT
 
 ask_add_job(){
-    local ANS="."
-    while [[ ${ANS^^} -ne "Y" || ${ANS^^} -ne "N" ]]; do 
-        echo "Do you want to add a cron job to update the system every week [y/n]?"
-        read ANS
-        if [[ ${ANS^^} -eq "Y" ]]; then
+    local ANS=""
+    while [[ "${ANS^^}" != "Y" && "${ANS^^}" != "N" ]]; do
+        echo "Add automatic system update once week?"
+        read -p "Please enter Y or N: " ANS
+        if [[ "${ANS^^}" == "Y" ]]; then
             if [[ -n $(sudo grep -q system_update /etc/crontab) ]]; then
                 sudo echo "0 2 * * 0 admin /usr/bin/system_update.sh >> var/log/system-updates.log" >> /etc/crontab;
             fi
         fi
     done
-    sudo touch var/log/system-updates.log > /dev/null
-    sudo mv system_update.sh /usr/bin/ > /dev/null
+    sudo touch /var/log/system-updates.log > /dev/null
+    sudo cp system_update.sh /usr/bin/ > /dev/null
 }
 
 # installing the netplan package for network configurations
@@ -27,7 +27,7 @@ pkg_install netplan.io
 # System upadte
 log_info "Setting up automatic system update..."
 pkg_install unattended-upgrades
-sudo dpkg-reconfigure -plow unattended-upgrades > /dev/null
+sudo DEBIAN_FRONTEND=noninteractive dpkg-reconfigure -plow unattended-upgrades > /dev/null
  # adding cron job for automatic system unpdate
 ask_add_job
  # keeping time accurate
