@@ -2,41 +2,41 @@
 
 ![Screen preview](./fleet_network_diagram_v3_bastion.svg)
 
-### Why:
-
 - this design follows simple rule: nothing should be reachable only if it strictly need to be. so if a server is compromised the "blast radius" is small. unlike a flat design where everything could be exposed.
 
 - The proxy (srv1) is the only thing that has to be reachable from the internet. it is the most attacked surface. Putting it in the DMZ zone means if its compromised the attacker has no direct route to the app logic and database.
 
 - srv2 and srv3 hold the actual logic and the actual data they're the assets worth protecting. they are not meant to face risks niether has any reason to face the internet directly.
 
-- role based subnet layout for better scalability, simplified management and improved security
+- Role ranges (gateway/app/data) are described explicitly as firewall-scoping boundaries, not routing boundaries. The internal zone is one /24 subnet (10.0.20.0/24), not three separate subnets.
 
 - Your machine reaches only the mgmt VM; the mgmt VM is the sole thing with SSH access into srv1/srv2/srv3. This narrows the attack surface to one machine instead of many. It also creates a single, consistent point of audit.
 
 ## Subnet layout
 
-| Subnet | Role |Range| Purpose |
-| ----------- | ----------- | ----------- |----------- |
-|Managment|Admin Access|10.0.0.0/28|SSH access from the operator's host only|
-|DMZ|Edge tier|10.0.10.0/24|Internet-facing leg of the proxy; room for future edge devices|
-|Gateway/transit|srv1 internal leg|10.0.20.0/26|a gateway or cross-tier roles. .0–.63|
-|APP tier|Application servers|10.0.20.64/26|Application server(s); usable range .64–.127|
-|Data tier|Databases + DNS|10.0.20.128/25|Database and internal DNS resolver; usable range .129–.254|
+| Subnet | Role | Range | Notes |
+|---|---|---|---|
+| Management | Admin access | 10.0.0.0/28 | Bastion VM only |
+| DMZ | Edge tier | 10.0.10.0/24 | srv1's DMZ leg |
+| Internal zone | Gateway + app tier + data tier | 10.0.20.0/24 | Single shared subnet — all hosts use /24; role separation enforced by firewall, not by subnet mask |
 
-**Why role-based subnetting:**
+## Role ranges within the internal zone (firewall-scoping only, not routing)
 
-- The core reasoning is that a firewall rule scoped to a role rather than an individual host doesn't need to change when the fleet grows.
+| Role range | Range | Host | Notes |
+|---|---|---|---|
+| Gateway | 10.0.20.0/26 | srv1 internal leg (10.0.20.1) | Excluded from app/data-tier firewall rules — bridges zones, doesn't inherit tier access |
+| App tier | 10.0.20.64/26 | srv2 (`10.0.20.65) | Room for additional app servers, .66–.126 |
+| Data tier | 10.0.20.128/25 | srv3 (10.0.20.129) | Room for future replicas, .131–.254 |
 
-- access is granted to a role/tag, and any host that is a member of that role automatically inherits the access, rather than every new host requiring manual firewall edits.
+**Note:** every host in the internal zone is configured with the full 10.0.20.0/24 mask on its interface — the role ranges above exist only as the CIDR blocks nftables rules match against (e.g. "accept 5432 from 10.0.20.64/26"), not as separate routed subnets.
 
-- Any host that plays a gateway or cross-tier role should live outside the tiers it routes between otherwise it silently inherits every permission granted to whichever tier it happens to share an address range with, even permissions it was explicitly designed not to have.
+**Why one shared subnet with role-scoped firewall ranges:**
 
-**Alternatives:**
+The internal zone (10.0.20.0/24) is one shared subnet srv1's internal leg, the app tier, and the data tier all use the same /24 mask, rather than each getting a separate subnet carved out of that space.
 
-- one flat subnet for every internal server, was rejected: No natural boundary for firewall rules. every rule has to be written per-host, and every new server means a new rule on every other server it needs to reach. This doesn't scale and is easy to get wrong or forget.
+This is deliberate: subnetting controls routing, firewall rules control access — and splitting one physical network segment into different subnet masks doesn't create a real access boundary, it just makes hosts wrongly assume a router sits between ranges that are actually directly reachable. Giving every host the same /24 mask lets Linux's connected-route logic handle reachability automatically, with no manual routes needed between srv1, srv2, and srv3.
 
-- a single subnet per physical server rather than per role (e.g. 10.0.20.0/30 per box). it optimizes for address while making the same scaling problem worse: adding a new role or a new tier would require re-carving the address space rather than simply drawing from an already-reserved block.
+The role ranges (10.0.20.0/26 gateway, 10.0.20.64/26 app tier, 10.0.20.128/25 data tier) still exist, but only as the ranges firewall rules match against e.g. "accept port 5432 only from 10.0.20.64/26." Access control lives entirely in the firewall, not the addressing. This keeps the earlier scaling benefit intact: a new app-tier host just needs an IP inside its range, no new subnets or routes required.
 
 
 **IP scheme:**
@@ -102,7 +102,7 @@ Each server runs its own host-based firewall (nftables). Rules are scoped to the
 | Direction | Source | Destination | Port | Proto | Rule |
 | ------ | ------ |------ |------ |------ |------ |
 |Inbound|Internet (any)|srv1 DMZ leg|80, 443|TCP|Allow|
-|Inbound|Management subnet|	srv1 internal leg|2307|TCP|Allow|
+|Inbound|Management|	srv1 internal leg|2307|TCP|Allow|
 |Inbound|Anything else|srv1 (any interface)|-|-|Deny (default)|
 |Forward|App tier + Data tier|Internet (via NAT)|80, 443|TCP|Allow|
 |Forward|Anything else|Internet|-|-|Deny (default)|
@@ -113,11 +113,11 @@ NAT masquerade applied on the internet-facing interface for the allowed forward 
 
 | Direction | Source | Destination | Port | Proto | Rule |
 |---|---|---|---|---|---|
-| Inbound | Management subnet | srv2 | 22 | TCP | Allow |
+| Inbound | Management | srv2 | 22 | TCP | Allow |
 | Inbound | srv1 (proxy IP only) | srv2 | 8080 | TCP | Allow |
 | Inbound | Anything else | srv2 | - | - | Deny (default) |
-| Outbound | srv2 | Data tier subnet | 5432 | TCP | Allow |
-| Outbound | srv2 | Data tier subnet | 53 | TCP + UDP | Allow |
+| Outbound | srv2 | Data tier | 5432 | TCP | Allow |
+| Outbound | srv2 | Data tier | 53 | TCP + UDP | Allow |
 | Outbound | srv2 | Internet | 80, 443 | TCP | Allow |
 | Outbound | srv2 | Anything else | - | - | Deny (default) |
 
@@ -125,9 +125,9 @@ NAT masquerade applied on the internet-facing interface for the allowed forward 
 
 | Direction | Source | Destination | Port | Proto | Rule |
 |---|---|---|---|---|---|
-| Inbound | Management subnet | srv3 | 22 | TCP | Allow |
-| Inbound | App tier subnet | srv3 | 5432 | TCP | Allow |
-| Inbound | App tier subnet | srv3 | 53 | TCP + UDP | Allow |
+| Inbound | Management | srv3 | 22 | TCP | Allow |
+| Inbound | App tier | srv3 | 5432 | TCP | Allow |
+| Inbound | App tier | srv3 | 53 | TCP + UDP | Allow |
 | Inbound | srv1 (gateway IP only) | srv3 | 53 | TCP + UDP | Allow |
 | Inbound | Anything else | srv3 | - | - | Deny (default) |
 | Outbound | srv3 | Anything | - | - | Deny (default - no outbound need; DNS forwarding disabled) |
@@ -147,5 +147,5 @@ These are consequences of the default-deny policy, not separate rules, but are c
 
 **Design principle**
 
-Rules scoped to a single IP (srv1 → srv2) represent a fixed, specifically-trusted host that should never gain broader access just by sharing a subnet with a scalable tier. Rules scoped to a subnet (app tier → data tier) represent a tier of interchangeable hosts, where adding a new member should require no firewall changes anywhere else in the fleet. Any host acting as a gateway between zones (srv1) is addressed outside both tiers it bridges, specifically so it cannot silently inherit tier-wide permissions it wasn't designed to have.
+Rules scoped to a single IP (srv1 → srv2) represent a fixed, specifically-trusted host that should never gain broader access just by sharing a range with a scalable tier. Rules scoped to a range (app tier → data tier) represent a tier of interchangeable hosts, where adding a new member should require no firewall changes anywhere else in the fleet. Any host acting as a gateway between zones (srv1) is addressed outside both tiers it bridges, specifically so it cannot silently inherit tier-wide permissions it wasn't designed to have.
 
