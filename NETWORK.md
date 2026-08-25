@@ -16,15 +16,15 @@
 
 | Subnet | Role | Range | Notes |
 |---|---|---|---|
-| Management | Admin access | 10.0.0.0/28 | Bastion VM only |
 | DMZ | Edge tier | 10.0.10.0/24 | srv1's DMZ leg |
-| Internal zone | Gateway + app tier + data tier | 10.0.20.0/24 | Single shared subnet — all hosts use /24; role separation enforced by firewall, not by subnet mask |
+| Internal zone | Gateway + app tier + data tier + management | 10.0.20.0/24 | Single shared subnet — all hosts use /24; role separation enforced by firewall, not by subnet mask |
 
 ## Role ranges within the internal zone (firewall-scoping only, not routing)
 
 | Role range | Range | Host | Notes |
 |---|---|---|---|
-| Gateway | 10.0.20.0/26 | srv1 internal leg (10.0.20.1) | Excluded from app/data-tier firewall rules — bridges zones, doesn't inherit tier access |
+| Gateway | 10.0.20.0/28 | srv1 internal leg (10.0.20.1) | Excluded from app/data-tier firewall rules — bridges zones, doesn't inherit tier access |
+| Management | 10.0.20.16/28 | srv1 internal leg (10.0.20.1) | Excluded from app/data-tier firewall rules — bridges zones, doesn't inherit tier access |
 | App tier | 10.0.20.64/26 | srv2 (`10.0.20.65) | Room for additional app servers, .66–.126 |
 | Data tier | 10.0.20.128/25 | srv3 (10.0.20.129) | Room for future replicas, .131–.254 |
 
@@ -36,7 +36,7 @@ The internal zone (10.0.20.0/24) is one shared subnet srv1's internal leg, the a
 
 This is deliberate: subnetting controls routing, firewall rules control access — and splitting one physical network segment into different subnet masks doesn't create a real access boundary, it just makes hosts wrongly assume a router sits between ranges that are actually directly reachable. Giving every host the same /24 mask lets Linux's connected-route logic handle reachability automatically, with no manual routes needed between srv1, srv2, and srv3.
 
-The role ranges (10.0.20.0/26 gateway, 10.0.20.64/26 app tier, 10.0.20.128/25 data tier) still exist, but only as the ranges firewall rules match against e.g. "accept port 5432 only from 10.0.20.64/26." Access control lives entirely in the firewall, not the addressing. This keeps the earlier scaling benefit intact: a new app-tier host just needs an IP inside its range, no new subnets or routes required.
+The role ranges (10.0.20.0/28 gateway, 10.0.20.16/28 management, 10.0.20.64/26 app tier, 10.0.20.128/25 data tier) still exist, but only as the ranges firewall rules match against e.g. "accept port 5432 only from 10.0.20.64/26." Access control lives entirely in the firewall, not the addressing. This keeps the earlier scaling benefit intact: a new app-tier host just needs an IP inside its range, no new subnets or routes required.
 
 
 **IP scheme:**
@@ -47,7 +47,7 @@ The role ranges (10.0.20.0/26 gateway, 10.0.20.64/26 app tier, 10.0.20.128/25 da
 |srv1| gateway/transit |10.0.20.1|
 |srv2| App tier|10.0.20.65|
 |srv3|Data tier|10.0.20.129|
-|admin host| Managment|10.0.0.2|
+|admin host| Managment|10.0.20.17|
 
 **clarification:**
 
