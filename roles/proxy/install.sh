@@ -2,14 +2,14 @@
 
 set -euo pipefail
 source "$(dirname "$0")/../../common/lib.sh"
-source proxy.conf
+source roles/proxy/proxy.conf
 require_root
 require_cmd netplan
 trap trap_cleanup EXIT
 
 # Network configuration
-[[ -f /etc/netplan/01-netcfg.yaml ]] || die "Netplan file was not found"
-NETPLAN_FILE="/etc/netplan/01-netcfg.yaml"
+[[ -f "/etc/netplan/${NET_FILE}" ]] || die "Netplan file was not found"
+NETPLAN_FILE="/etc/netplan/${NET_FILE}"
 
 [[ ${#INTERFACES[@]} -gt 0 ]] || die "No interfaces defined in proxy.conf"
 
@@ -33,7 +33,7 @@ generate_netplan_yaml() {
         echo "        - to: default"
         echo "          via: $DEFAULT_ROUTE_VIA"
       fi
-      if [[ ${#DNS_SERVERS[@]:-0} -gt 0 ]]; then
+      if [[ $(( ${#DNS_SERVERS[@]} + 0 )) -gt 0 ]]; then
         echo "      nameservers:"
         echo "        addresses: [$(IFS=,; echo "${DNS_SERVERS[*]}")]"
       fi
@@ -50,12 +50,14 @@ chmod 600 "$NETPLAN_FILE" > /dev/null
 
  # appling changes
 log_info "Applying netplan configuration..."
-netplan apply
+netplan apply > /dev/null || die "Failed to apply netplan configuration"
 log_info "netpaln configuration applied."
 
  # closing unecessary listening ports
-log_info "closing Ports..."
-close_ports $TO_BE_ClOSED_PORTS
+if [[ $(( ${#TO_CLOSE_PORTS[@]} + 0 )) -gt 0 ]]; then
+    log_info "closing Ports..."
+    close_ports $TO_CLOSE_PORTS
+fi
 
 # installing nginx
 pkg_install nginx
