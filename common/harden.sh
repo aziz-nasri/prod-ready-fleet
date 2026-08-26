@@ -8,16 +8,22 @@ trap trap_cleanup EXIT
 ask_add_job(){
     local ANS=""
     while [[ "${ANS^^}" != "Y" && "${ANS^^}" != "N" ]]; do
-        echo "Add automatic system update once week?"
-        read -p "Please enter Y or N: " ANS
+        echo "Add automatic system update once week? Please enter Y or N:"
+        read ANS
         if [[ "${ANS^^}" == "Y" ]]; then
-            if [[ -n $(sudo grep -q system_update /etc/crontab) ]]; then
-                sudo echo "0 2 * * 0 admin /usr/bin/system_update.sh >> var/log/system-updates.log" >> /etc/crontab;
+            CRON_FILE="/etc/cron.d/system-update"
+            sudo touch "$CRON_FILE" > /dev/null
+            sudo chmod 644 "$CRON_FILE"
+            sudo chown admin:admin "$CRON_FILE"
+            if [[ ! $(sudo grep -q "system_update" /etc/cron.d/system-update) ]]; then
+                cat > "$CRON_FILE" << EOF
+                0 2 * * 0 admin /usr/bin/system_update.sh
+EOF
             fi
         fi
     done
     sudo touch /var/log/system-updates.log > /dev/null
-    sudo cp system_update.sh /usr/bin/ > /dev/null
+    sudo cp common/system_update.sh /usr/bin/ > /dev/null
 }
 
 # installing the netplan package for network configurations
@@ -31,15 +37,17 @@ sudo DEBIAN_FRONTEND=noninteractive dpkg-reconfigure -plow unattended-upgrades >
  # adding cron job for automatic system unpdate
 ask_add_job
  # keeping time accurate
+ log_info "Setting up chrony for time synchronization..."
 pkg_install chrony
 sudo systemctl enable --now chrony > /dev/null
+log_info "Chrony is set up and running."
 log_info "Automatic system update is set up."
 
-# Minimazing the attack surface.
+# Minimizing the attack surface.
  # remove unused packages
 log_info "Removing unused packages..."
-sudo apt autoremove --purge > /dev/null
-sudo apt clean > /dev/null
+sudo apt-get autoremove --purge > /dev/null
+sudo apt-get clean > /dev/null
 log_info "removed unused packages."
 
 # SSH hardening.
@@ -59,19 +67,9 @@ log_info "SSH hardening applied."
 
 
 # Firewall.
-log_info "Adding firewall (default deny all)..."
+log_info "Installing firewall (nftables package)..."
 pkg_install nftables
 
 sudo systemctl enable --now nftables > /dev/null
-
-if [[ -n $(sudo grep "table inet filter" etc/nftables.conf) ]]; then
-    sudo nft add table inet filter > /dev/null
-    sudo nft add chain inet filter input { type filter hook input priority 0 \; policy drop \; } > /dev/null
-    sudo nft add rule inet filter input iif "lo" accept > /dev/null
-    sudo nft add rule inet filter input ct state established,related accept > /dev/null
-    sudo nft add rule inet filter input ip protocol icmp accept > /dev/null
-    sudo nft add rule inet filter input ip6 nexthdr icmpv6 accept > /dev/null
-
-    sudo nft list ruleset | sudo tee /etc/nftables.conf > /dev/null
-fi
-log_info "Firewall added."
+sudo systemctl start nftables > /dev/null
+log_info "Firewall (nftables) is installed and running."

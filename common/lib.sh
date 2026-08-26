@@ -27,7 +27,7 @@ check_connectivity() {
 }
 
 # Idempotency halpers
-is_installed()      { dpkg -l "$1" &>/dev/null; }  
+is_installed()      { dpkg-query -W -f='${Status}' $1 2>/dev/null | grep -q "install ok installed"; }  
 is_service_active() { systemctl is-active --quiet "$1"; }
 is_service_enabled() { systemctl is-enabled --quiet "$1"; }
 file_contains()      { grep -qF "$2" "$1" 2>/dev/null; }
@@ -35,7 +35,7 @@ file_contains()      { grep -qF "$2" "$1" 2>/dev/null; }
 # package manager wrapper
 pkg_install() {
   for pkg in "$@"; do
-    is_installed "$pkg" || { log_info "Installing $pkg"; sudo apt-get install -y "$pkg"; }
+    is_installed "$pkg" || { log_info "Installing $pkg"; sudo apt-get install -y "$pkg" > /dev/null; }
   done
 }
 
