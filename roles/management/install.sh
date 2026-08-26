@@ -9,8 +9,8 @@ trap trap_cleanup EXIT
 
 # Network configuration
 
-[[ -f "/etc/netplan/${NETCFG}" ]] || die "Netplan file was not found"
-NETPLAN_FILE="/etc/netplan/${NETCFG}"
+[[ -f "/etc/netplan/${NET_FILE}" ]] || die "Netplan file was not found"
+NETPLAN_FILE="/etc/netplan/${NET_FILE}"
 
 backup_file "$NETPLAN_FILE"
 
@@ -37,7 +37,7 @@ chmod 600 "$NETPLAN_FILE" > /dev/null > /dev/null
 
  # appling changes
 log_info "Applying netplan configuration..."
-netplan apply
+netplan apply > /dev/null || die "Failed to apply netplan configuration"
 log_info "netpaln configuration applied."
 
  # closing unecessary listening ports
