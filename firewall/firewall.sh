@@ -61,27 +61,39 @@ nft add rule inet filter input iifname $HOST_IF tcp dport $SSH_PORT accept
 nft add rule inet filter output oif lo accept
 nft add rule inet filter output ct state established,related accept
 nft add rule inet filter output oifname $FLEET_IF tcp dport $SSH_PORT accept
+nft add rule inet filter output oifname $HOST_IF tcp dport $SSH_PORT accept
 nft add rule inet filter output oifname $HOST_IF tcp dport { $HTTP_PORT, $HTTPS_PORT } accept
 nft add rule inet filter output oifname $HOST_IF udp dport $DNS_PORT accept
 }
 
+# Firewall rules applied to all servers
+log_info "Appling common firewall rules..."
+sudo nft flush ruleset > /dev/null
+sudo nft add table inet filter > /dev/null
+sudo nft add chain inet filter input { type filter hook input priority 0 \; policy drop \; } > /dev/null
+sudo nft add rule inet filter input iif "lo" accept > /dev/null
+sudo nft add rule inet filter input ct state established,related accept > /dev/null
+sudo nft add rule inet filter input ip protocol icmp accept > /dev/null
+sudo nft add rule inet filter input ip6 nexthdr icmpv6 accept > /dev/null
+
 if [[ $(hostname | grep -i "proxy") ]]; then
-    log_info "Adding firewall rules to the proxy server."
+    log_info "Adding firewall rules to the proxy server..."
     proxy_fw
 elif [[ $(hostname | grep -i "app") ]]; then
-    log_info "Adding firewall rules to the Application server."
+    log_info "Adding firewall rules to the Application server..."
     app_fw
 elif [[ $(hostname | grep -i "database") ]]; then
-    log_info "Adding firewall rules to the database server."
+    log_info "Adding firewall rules to the database server..."
     db_fw
 elif [[ $(hostname | grep -i "mgmt") ]]; then
-    log_info "Adding firewall rules to the management bastion."
+    log_info "Adding firewall rules to the management bastion..."
     mgmt_fw
 else
+    sudo nft flush ruleset  > /dev/null
     log_warn "no server detected. no firewall rules applied."
 fi
 
 sudo nft list ruleset | sudo tee /etc/nftables.conf > /dev/null
 
-log_info "finised adding firewall rules."
 sudo systemctl reload nftables 2>/dev/null
+log_info "finised adding firewall rules."
