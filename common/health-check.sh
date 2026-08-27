@@ -19,7 +19,7 @@ echo "Load average: $(uptime | cut -d"," -f3)"
 echo "CPU usage:"
 echo "--------------------------------------------------------------"
 CPU=$(sar -u 1 7)
-IDL_CPU=$($CPU | grep -i "average" | awk '{print $8}')
+IDL_CPU=$(echo "$CPU" | grep -i "average" | awk '{print $8}')
 echo "$CPU"
 if [[ $IDL_CPU < $CPU_THRES ]]; then
     echo "WARNING: CPU usage is almost full!"
