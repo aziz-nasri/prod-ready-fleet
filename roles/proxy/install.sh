@@ -7,6 +7,8 @@ require_root
 require_cmd netplan
 trap trap_cleanup EXIT
 
+# installing required packages
+pkg_install curl openssl
 
 # Network configuration
 [[ -f "/etc/netplan/${NET_FILE}" ]] || die "Netplan file was not found"
