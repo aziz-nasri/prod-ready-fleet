@@ -2,8 +2,9 @@
 
 set -euo pipefail
 
+
 echo "Checking nginx (https respond locally)"
-HTTP_CODE=curl -sk -o /dev/null -w '%{http_code}' https://localhost
+HTTP_CODE="$(curl -sk -o /dev/null -w '%{http_code}' https://localhost)"
 echo "Returned HTTP status: ${HTTP_CODE}."
 if [[ $HTTP_CODE == 200 ]]; then
     echo "OK: nginx is up."
