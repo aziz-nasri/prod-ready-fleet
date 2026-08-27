@@ -10,14 +10,13 @@ ask_add_job(){
     while [[ "${ANS^^}" != "Y" && "${ANS^^}" != "N" ]]; do
         echo "Add automatic system update once week? Please enter Y or N:"
         read ANS
-        if [[ "${ANS^^}" == "Y" ]]; then
+        if [[ "${ANS^^}" == "Y" && ! -f "/etc/cron.d/system-update" ]]; then
             CRON_FILE="/etc/cron.d/system-update"
             sudo touch "$CRON_FILE" > /dev/null
             sudo chmod 644 "$CRON_FILE"
             sudo chown admin:admin "$CRON_FILE"
-            if [[ ! $(sudo grep -q "system_update" /etc/cron.d/system-update) ]]; then
-                cat > "$CRON_FILE" << EOF
-                0 2 * * 0 admin /usr/bin/system_update.sh
+            cat > "$CRON_FILE" << EOF
+0 2 * * 0 admin /usr/bin/system_update.sh
 EOF
             fi
         fi
