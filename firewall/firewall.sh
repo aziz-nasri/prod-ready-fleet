@@ -2,7 +2,7 @@
 
 set -euo pipefail
 source "$(dirname "$0")/../common/lib.sh"
-source firewall.conf
+source "$(dirname "$0")/firewall.conf"
 require_root
 trap trap_cleanup EXIT
 
@@ -27,7 +27,6 @@ nft add chain inet filter output '{ type filter hook output priority 0; policy d
 
 nft add rule inet filter input ip saddr $PROXY_IP tcp dport $APP_PORT accept > /dev/null
 nft add rule inet filter input tcp dport $APP_PORT drop > /dev/null
-nft add rule inet filter input ip saddr $MGMT_NET tcp dport $SSH_PORT accept > /dev/null
 
 nft add rule inet filter output oif lo accept > /dev/null
 nft add rule inet filter output ct state established,related accept > /dev/null
@@ -40,7 +39,6 @@ nft add rule inet filter output tcp dport { $HTTP_PORT, $HTTPS_PORT } accept > /
 # Database + DNS server Firewall configurations
 db_fw(){
 nft add rule inet filter input ct state invalid drop > /dev/null
-nft add rule inet filter input ip saddr $MGMT_NET tcp dport $SSH_PORT accept > /dev/null
 nft add rule inet filter input ip saddr $APP_TIER tcp dport $DATABASE_PORT accept > /dev/null
 nft add rule inet filter input ip saddr $APP_TIER udp dport $DNS_PORT accept > /dev/null
 nft add rule inet filter input ip saddr $APP_TIER tcp dport $DNS_PORT accept > /dev/null
@@ -65,13 +63,14 @@ nft add rule inet filter output oifname $HOST_IF udp dport $DNS_PORT accept
 
 # Firewall rules applied to all servers
 log_info "Appling common firewall rules..."
-sudo nft flush ruleset > /dev/null
-sudo nft add table inet filter > /dev/null
-sudo nft add chain inet filter input { type filter hook input priority 0 \; policy drop \; } > /dev/null
-sudo nft add rule inet filter input iif "lo" accept > /dev/null
-sudo nft add rule inet filter input ct state established,related accept > /dev/null
-sudo nft add rule inet filter input ip protocol icmp accept > /dev/null
-sudo nft add rule inet filter input ip6 nexthdr icmpv6 accept > /dev/null
+nft flush ruleset > /dev/null
+nft add table inet filter > /dev/null
+nft add chain inet filter input { type filter hook input priority 0 \; policy drop \; } > /dev/null
+nft add rule inet filter input iif "lo" accept > /dev/null
+nft add rule inet filter input ct state established,related accept > /dev/null
+nft add rule inet filter input ip protocol icmp accept > /dev/null
+nft add rule inet filter input ip6 nexthdr icmpv6 accept > /dev/null
+nft add rule inet filter input ip saddr $MGMT_NET tcp dport $SSH_PORT accept > /dev/null
 
 if [[ $(hostname | grep -i "proxy") ]]; then
     log_info "Adding firewall rules to the proxy server..."
@@ -92,5 +91,5 @@ fi
 
 sudo nft list ruleset | sudo tee /etc/nftables.conf > /dev/null
 
-sudo systemctl reload nftables 2>/dev/null
+sudo systemctl restart nftables 2>/dev/null
 log_info "finised adding firewall rules."
