@@ -56,6 +56,10 @@ log_info "Applying netplan configuration..."
 netplan apply &> /dev/null || die "Failed to apply netplan configuration"
 log_info "netpaln configuration applied."
 
+# adding port forwarding
+sudo sysctl -w net.ipv4.ip_forward=1 > /dev/null
+echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/99-fleet-forwarding.conf > /dev/null
+
  # closing unecessary listening ports
 if [[ $(( ${#TO_CLOSE_PORTS[@]} + 0 )) -gt 0 ]]; then
     log_info "closing Ports..."

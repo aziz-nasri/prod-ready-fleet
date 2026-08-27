@@ -19,9 +19,6 @@ nft add rule inet filter forward iifname "$INT_IF" oifname "$NAT_IF" ip saddr $I
 nft add table inet nat > /dev/null
 nft add chain inet nat postrouting '{ type nat hook postrouting priority 100; }' > /dev/null
 nft add rule inet nat postrouting oifname $NAT_IF masquerade > /dev/null
-
-sudo sysctl -w net.ipv4.ip_forward=1 > /dev/null
-echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/99-fleet-forwarding.conf > /dev/null
 }
 
 # Application server Firewall configurations
