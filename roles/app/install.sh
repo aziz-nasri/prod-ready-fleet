@@ -172,13 +172,21 @@ log_info "adding health check scripts and cron job..."
 if [[ -d ~/health-check && -f ~/health-check/health-check.sh && -f ~/health-check/health-extra.sh  ]]; then
     log_warn "Health checks already exsit."
 else
-sudo mkdir ~/health-check > /dev/null
-sudo chown admin:admin ~/health-check > /dev/null
-sudo chmod 550 ~/health-check > /dev/null
-cp ../../common/health-check.sh ~/health-check > /dev/null
-cp health-extra.sh ~/health-check > /dev/null
-cp health.conf ~/health-check > /dev/null
-# adding a cron job
-(crontab -l 2>/dev/null; echo "30 9 * * * admin ~/health-check/health-check.sh > var/log/health-check<$(date)>.log") | sudo crontab -
-log_info "health check added successfully."
+    mkdir /home/"$SUDO_USER"/health-check > /dev/null
+    sudo chown admin:admin  /home/"$SUDO_USER"/health-check > /dev/null
+    sudo chmod 550 /home/"$SUDO_USER"/health-check > /dev/null
+    cp "$(dirname "$0")/../../common/health-check.sh" /home/"$SUDO_USER"/health-check > /dev/null
+    cp "$(dirname "$0")/health-extra.sh" /home/"$SUDO_USER"/health-check > /dev/null
+    cp "$(dirname "$0")/health.conf" /home/"$SUDO_USER"/health-check > /dev/null
+    # adding a cron job
+    if [[ ! -f "/etc/cron.d/health-check" ]]; then
+        CRON_FILE="/etc/cron.d/health-check"
+        sudo touch "$CRON_FILE" > /dev/null
+        sudo chmod 644 "$CRON_FILE"
+        sudo chown admin:admin "$CRON_FILE"
+        cat > "$CRON_FILE" << EOF
+30 9 * * * admin /home/${SUDO_USER}/health-check/health-check.sh &> /var/log/health-check_$(date +%Y-%m-%d).log
+EOF
+    fi
 fi
+log_info "Health check scripts and cron job added successfully."
