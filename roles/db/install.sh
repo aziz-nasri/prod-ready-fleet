@@ -2,14 +2,15 @@
 
 set -euo pipefail
 source "$(dirname "$0")/../../common/lib.sh"
+source "$(dirname "$0")/db-server.conf"
 require_root
 require_cmd netplan
 trap trap_cleanup EXIT
 
 
 # Network configuration
-[[ -f /etc/netplan/01-netcfg.yaml ]] || die "Netplan file was not found"
-NETPLAN_FILE="/etc/netplan/01-netcfg.yaml"
+[[ -f "/etc/netplan/${NET_FILE}" ]] || die "Netplan file was not found"
+NETPLAN_FILE="/etc/netplan/${NET_FILE}"
 
 [[ ${#INTERFACES[@]} -gt 0 ]] || die "No interfaces defined in db-sever.conf"
 
@@ -33,7 +34,7 @@ generate_netplan_yaml() {
         echo "        - to: default"
         echo "          via: $DEFAULT_ROUTE_VIA"
       fi
-      if [[ ${#DNS_SERVERS[@]:-0} -gt 0 ]]; then
+      if [[ $(( ${#DNS_SERVERS[@]} + 0 )) -gt 0 ]]; then
         echo "      nameservers:"
         echo "        addresses: [$(IFS=,; echo "${DNS_SERVERS[*]}")]"
       fi
@@ -50,16 +51,19 @@ chmod 600 "$NETPLAN_FILE"
 
  # appling changes
 log_info "Applying netplan configuration..."
-netplan apply
+netplan apply > /dev/null || die "Failed to apply netplan configuration"
 log_info "netpaln configuration applied."
 
  # closing unecessary listening ports
- log_info "Closing ports..."
-close_ports $TO_BE_ClOSED_PORTS
+if [[ $(( ${#TO_CLOSE_PORTS[@]} + 0 )) -gt 0 ]]; then
+    log_info "closing Ports..."
+    close_ports $TO_CLOSE_PORTS
+fi
+
 
 # setting up Postgresql
  # installig the package
-sudo apt update > /dev/null
+sudo apt-get update > /dev/null
 pkg_install postgresql
 pkg_install postgresql-contrib
 log_info "postgresql installed."
@@ -155,6 +159,7 @@ sudo systemctl enable --now postgresql > /dev/null
 sudo systemctl start postgresql > /dev/null
 log_info "postgresql configured."
 
+:<< 'COMMENT'
 log_info "Setting up DNS"
 # installing dnsmasq
 pkg_install dnsmasq
