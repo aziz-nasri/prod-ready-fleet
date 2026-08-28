@@ -42,6 +42,15 @@ sudo systemctl enable --now chrony > /dev/null
 log_info "Chrony is set up and running."
 log_info "Automatic system update is set up."
 
+# hostname resolution locally
+HOSTNAME=$(hostname)
+log_info "Adding hostname resolution for $HOSTNAME..."
+sudo bash -c 'echo "127.0.1.1 "${HOSTNAME}" >> /etc/hosts'
+sudo tee /etc/hosts > /dev/null << EOF
+127.0.1.1 ${HOSTNAME}
+127.0.0.1 localhost
+EOF
+
 # Minimizing the attack surface.
  # remove unused packages
 log_info "Removing unused packages..."
