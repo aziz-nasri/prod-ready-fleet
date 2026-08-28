@@ -51,7 +51,7 @@ chmod 600 "$NETPLAN_FILE"
 
  # appling changes
 log_info "Applying netplan configuration..."
-netplan apply > /dev/null || die "Failed to apply netplan configuration"
+netplan apply &> /dev/null || die "Failed to apply netplan configuration"
 log_info "netpaln configuration applied."
 
  # closing unecessary listening ports
@@ -63,14 +63,14 @@ fi
 
 # setting up Postgresql
  # installig the package
+log_info "Installing PostgreSQL..."
 sudo apt-get update > /dev/null
-pkg_install postgresql
-pkg_install postgresql-contrib
+pkg_install postgresql postgresql-contrib
 log_info "postgresql installed."
 
 log_info "Creating the database..."
  # creating the database
-sudo -u postgres -c << EOF
+sudo -u postgres psql << EOF
 CREATE USER appuser WITH PASSWORD '${APPUSER_PASSWD}';
 CREATE DATABASE appdb OWNER appuser;
 REVOKE ALL ON DATABASE appdb FROM PUBLIC;
@@ -159,8 +159,8 @@ sudo systemctl enable --now postgresql > /dev/null
 sudo systemctl start postgresql > /dev/null
 log_info "postgresql configured."
 
-:<< 'COMMENT'
-log_info "Setting up DNS"
+
+log_info "Setting up DNS..."
 # installing dnsmasq
 pkg_install dnsmasq
 
@@ -183,7 +183,6 @@ interface=${INTERFACES[0]}
 listen-address=${LISTEN_IP}
 bind-interfaces
 
-no-hosts
 no-resolv
 
 domain=lab.internal
@@ -203,6 +202,7 @@ log-facility=/var/log/dnsmasq.log
 EOF
 log_info "DNS configured."
 
+:<< 'COMMENT2'
 log_info "Setting up database backup..."
 # backup script
  # creating the backup user
@@ -252,3 +252,4 @@ EOF
     fi
 fi
 log_info "Health check scripts and cron job added successfully."
+COMMENT2

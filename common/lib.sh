@@ -34,9 +34,7 @@ file_contains()      { grep -qF "$2" "$1" 2>/dev/null; }
 
 # package manager wrapper
 pkg_install() {
-  for pkg in "$@"; do
-    is_installed "$pkg" || { log_info "Installing $pkg"; sudo apt-get install -y "$pkg" > /dev/null; }
-  done
+    is_installed "$1" || { log_info "Installing $1"; sudo apt-get install -y "$1"; }
 }
 
 # safe backup function
