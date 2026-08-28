@@ -60,6 +60,34 @@ log_info "netpaln configuration applied."
 sudo sysctl -w net.ipv4.ip_forward=1 > /dev/null
 echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/99-fleet-forwarding.conf > /dev/null
 
+# Adding DNS forwarding
+log_info "Adding DNS forwarding..."
+log_info "installing dnsmasq..."
+pkg_install dnsmasq
+if [[ ! -f "/etc/dnsmasq.conf" ]]; then
+    die "dnsmasq config file does not exist."
+fi
+sudo tee -a /etc/dnsmasq.conf > /dev/null << EOF
+# DNS forwarding for the fleet
+interface=enp0s9
+bind-interfaces
+listen-address=10.0.20.1
+
+# Forward internal lab.internal queries to srv3, the authoritative internal resolver
+server=/lab.internal/10.0.20.129
+address=/ReverseProxy/127.0.0.1
+
+# Forward everything else upstream, to a real resolver
+server=1.1.1.1
+server=8.8.8.8
+
+no-resolv
+EOF
+
+sudo systemctl restart dnsmasq > /dev/null
+sudo systemctl enable dnsmasq --now > /dev/null
+
+
  # closing unecessary listening ports
 if [[ $(( ${#TO_CLOSE_PORTS[@]} + 0 )) -gt 0 ]]; then
     log_info "closing Ports..."
@@ -174,7 +202,7 @@ log_info "nginx configured successfully"
 
 # adding health check script
 log_info "adding health check scripts and cron job..."
-if [[ -d ~/health-check && -f ~/health-check/health-check.sh && -f ~/health-check/health-extra.sh  ]]; then
+if [[ -d "/home/"$SUDO_USER"/health-check" && -f "/home/"$SUDO_USER"/health-check/health-check.sh" && -f "/home/"$SUDO_USER"/health-check/health-extra.sh" ]]; then
     log_warn "Health checks already exsit."
 else
     mkdir /home/"$SUDO_USER"/health-check > /dev/null
@@ -193,5 +221,5 @@ else
 30 9 * * * admin /home/${SUDO_USER}/health-check/health-check.sh &> /var/log/health-check_$(date +%Y-%m-%d).log
 EOF
     fi
-fi
 log_info "Health check scripts and cron job added successfully."
+fi
