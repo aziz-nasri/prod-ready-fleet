@@ -18,7 +18,6 @@ ask_add_job(){
             cat > "$CRON_FILE" << EOF
 0 2 * * 0 admin /usr/bin/system_update.sh
 EOF
-            fi
         fi
     done
     sudo touch /var/log/system-updates.log > /dev/null
@@ -45,7 +44,6 @@ log_info "Automatic system update is set up."
 # hostname resolution locally
 HOSTNAME=$(hostname)
 log_info "Adding hostname resolution for $HOSTNAME..."
-sudo bash -c 'echo "127.0.1.1 "${HOSTNAME}" >> /etc/hosts'
 sudo tee /etc/hosts > /dev/null << EOF
 127.0.1.1 ${HOSTNAME}
 127.0.0.1 localhost
