@@ -32,3 +32,6 @@ roles/management/mgmt.conf
 test/proxy.conf
 test/app.conf
 test/db.conf
+
+# backup service environment file
+roles/db/backup.env
