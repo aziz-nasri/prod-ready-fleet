@@ -1,11 +1,9 @@
 #!/bin/bash
 
 set -euo pipefail 
-source $1     # takes the user configuration file as argument
+source "$1"     # takes the user configuration file as argument
 source "$(dirname "$0")/lib.sh"
 require_root
-trap trap_cleanup EXIT
-
 
 # Checking if user already exists
 if id "$USERNAME" &>/dev/null; then
@@ -13,10 +11,10 @@ if id "$USERNAME" &>/dev/null; then
 fi
 
 # Creating the user
-useradd -m \ 
+useradd -m \
         -d "$HOME_DIR" \
         -s "$SHELL" \
-        -c "$FULLNAME" \ 
+        -c "$FULLNAME" \
         -G "$GROUPS" \
         "$USERNAME"
 
@@ -27,7 +25,7 @@ if [[ $TEMP_PASSWD == "yes" ]]; then
 fi
 
 if [[ $SET_SSH == "yes" ]]; then
-    # 4. Set up SSH access (key-based, not password)
+    #Set up SSH access (key-based, not password)
     mkdir -p "$HOME_DIR/.ssh"
     cp /path/to/authorized_keys "$HOME_DIR/.ssh/authorized_keys"
     chmod 700 "$HOME_DIR/.ssh"
@@ -35,7 +33,6 @@ if [[ $SET_SSH == "yes" ]]; then
     chown -R "$USERNAME:$USERNAME" "$HOME_DIR/.ssh"
 fi
 
-
-# 6. Set permissions on home directory
+# Set permissions on home directory
 chmod 750 "$HOME_DIR"
-
+exit 0
