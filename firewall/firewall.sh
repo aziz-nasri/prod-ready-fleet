@@ -63,6 +63,8 @@ nft add rule inet filter input ip saddr "$PROXY_IP" tcp dport "$DNS_PORT"  accep
 nft add chain inet filter output '{ type filter hook output priority 0; policy drop; }' > /dev/null
 nft add rule inet filter output oif lo accept > /dev/null
 nft add rule inet filter output ct state established,related accept > /dev/null
+nft add rule inet filter output oifname "$DB_INT_IF" udp dport "$DNS_PORT" accept > /dev/null
+nft add rule inet filter output oifname "$DB_INT_IF" tcp dport "$DNS_PORT" accept > /dev/null
 }
 mgmt_fw(){
 log_info "Adding firewall rules to the management bastion..."
