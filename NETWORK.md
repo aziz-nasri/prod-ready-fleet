@@ -61,7 +61,7 @@ The role ranges (10.0.20.0/28 gateway, 10.0.20.16/28 management, 10.0.20.64/26 a
 
 **Setup:**
 
-Internal DNS resolution is provided by dnsmasq, running on srv3 (db.lab.internal, 10.0.20.129), serving only the internal zone (10.0.20.0/24).
+Internal DNS resolution is provided by dnsmasq, running on srv1 acting as the DNS Forwarder, srv3 (db.lab.internal, 10.0.20.129), serving only the internal zone (10.0.20.0/24) while everything else is forwarded to a real upstream (1.1.1.1 / 8.8.8.8).
 
 Each host in the fleet resolves by name rather than hardcoded IP:
 
@@ -73,9 +73,7 @@ Each host in the fleet resolves by name rather than hardcoded IP:
 
 - Static host mappings are defined in dnsmasq.d/lab.conf and dnsmasq is bound explicitly to the internal interface (bind-interfaces), so it does not answer queries from the DMZ leg or the NAT-facing adapter.
 
-- Upstream forwarding is disabled dnsmasq answers only for lab.internal and does not resolve external domains, since nothing on the internal zone should need to reach the public internet directly.
-
-- Each internal host's /etc/netplan config points its nameservers entry at 10.0.20.129, so name resolution is automatic on boot rather than requiring manual /etc/hosts edits per server.
+- Each internal host's /etc/netplan config points its nameservers entry at 10.0.20.1, so name resolution is automatic on boot rather than requiring manual /etc/hosts edits per server.
 
 **Why dnsmasq:**
 
@@ -85,9 +83,9 @@ dnsmasq was chosen over a full DNS server (BIND9) or static /etc/hosts files for
 - Avoids the maintenance problem of static hosts files
 - It's the same tool that would handle DHCP if the fleet grew
 
-**Why it doesn't forward external queries:**
+**External DNS resolution:**
 
-Disabling upstream forwarding is a deliberate security choice. hosts on the internal zone have no legitimate reason to resolve public domains, since they never initiate outbound connections to the internet by design (only srv1's DMZ leg faces the internet).
+Internal hosts (srv2, srv3) do not resolve external hostnames directly their DNS is set to srv1's internal leg (10.0.20.1), which runs its own dnsmasq instance acting as the zone's single DNS forwarder. srv1 splits queries by domain: lab.internal names are forwarded to srv3, the authoritative internal resolver, while everything else is forwarded to a real upstream (1.1.1.1 / 8.8.8.8). This keeps external resolution centralized at the gateway rather than distributing it to every internal host, while still letting srv2 and srv3 resolve public hostnames when genuinely needed (e.g. apt package installs).
 
 **Why both TCP and UDP, not just one**
 
