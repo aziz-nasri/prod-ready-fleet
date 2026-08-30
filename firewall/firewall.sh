@@ -16,6 +16,8 @@ nft add rule inet filter output oif lo accept > /dev/null
 nft add rule inet filter output ct state established,related accept > /dev/null
 nft add rule inet filter output oifname "$NAT_IF" udp dport "$DNS_PORT" accept > /dev/null
 nft add rule inet filter output oifname "$NAT_IF" tcp dport "$DNS_PORT" accept > /dev/null
+nft add rule inet filter output oifname "$INT_IF" udp dport "$DNS_PORT" accept > /dev/null
+nft add rule inet filter output oifname "$INT_IF" tcp dport "$DNS_PORT" accept > /dev/null
 
 nft add rule inet filter input iifname "$INT_IF" ip saddr "$MGMT_NET" tcp dport "$SSH_PORT" accept
 nft add rule inet filter input iifname "$NAT_IF" tcp dport { "$HTTP_PORT", "$HTTPS_PORT" } accept > /dev/null
