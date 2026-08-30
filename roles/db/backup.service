@@ -7,15 +7,11 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 
-User=backup
+User=backup-db
 
-Environment="SOURCE_FILE=SOURCE_FILE_PLACEHOLDER"
-Environment="BACKUP_DIR=/var/backups/myapp"
-Environment="RETENTION_DAYS=14"
-Environment="COMPRESS=true"
-Environment="LOG_FILE=/var/log/backup.log"
-Environment="PREFIX=db"
-
+EnvironmentFile=/opt/app/backup.env
+RuntimeDirectory=backup
+RuntimeDirectoryMode=0755
 ExecStart=/usr/local/bin/backup.sh
 
 Nice=10
@@ -23,7 +19,7 @@ IOSchedulingClass=best-effort
 IOSchedulingPriority=7
 
 ProtectSystem=strict
-ProtectHome=true
+ProtectHome=read-only
 PrivateTmp=true
 NoNewPrivileges=true
 PrivateDevices=true
@@ -34,7 +30,7 @@ RestrictSUIDSGID=true
 LockPersonality=true
 RestrictRealtime=true
 
-ReadWritePaths=/var/backups/myapp /var/log/backup.log SOURCE_FILE_PLACEHOLDER
+ReadWritePaths=/var/backups/myapp /var/log/backup.log SOURCE_FILE_PLACEHOLDER /opt/app/backup.env
 
 # Timeout increase if the database is very large
 TimeoutStartSec=30min

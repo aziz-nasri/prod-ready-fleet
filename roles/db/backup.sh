@@ -3,7 +3,8 @@
 set -euo pipefail
 
 # Configuration
-LOCK_FILE="${LOCK_FILE:-/run/user/$(id -u)/backup-db.lock}"
+LOCK_FILE="${LOCK_FILE:-${RUNTIME_DIRECTORY:-/run/backup}/backup-db.lock}"
+LOG_FILE="${LOG_FILE:-/var/log/backup.log}"
 
 # Helpers
 log() {
@@ -18,6 +19,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
+log "INFO" "Running as $(id)"
+log "INFO" "SOURCE_FILE='$SOURCE_FILE'  realpath=$(realpath "$SOURCE_FILE" 2>/dev/null || echo 'realpath failed')"
 
 if [[ -f "$LOCK_FILE" ]]; then
     log "ERROR" "Another backup is already running (lock: $LOCK_FILE)"
@@ -28,13 +31,13 @@ fi
 mkdir -p "$(dirname "$LOCK_FILE")"
 echo $$ > "$LOCK_FILE"
 
-if [[ ! -f "$SOURCE_FILE" ]]; then
-    log "ERROR" "Source file does not exist: $SOURCE_FILE"
+if [[ ! -d "$SOURCE_FILE" ]]; then
+    log "ERROR" "Source directory does not exist: $SOURCE_FILE"
     exit 1
 fi
 
 if [[ ! -r "$SOURCE_FILE" ]]; then
-    log "ERROR" "Source file is not readable: $SOURCE_FILE"
+    log "ERROR" "Source directory is not readable: $SOURCE_FILE"
     exit 1
 fi
 
@@ -51,21 +54,19 @@ fi
 
 
 # Create backup
+DIR_NAME="${SOURCE_FILE##*/}"
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
-BASENAME="${PREFIX}_${TIMESTAMP}"
-TMP_BACKUP="${BACKUP_DIR}/${BASENAME}.tmp.d/"
+BASENAME="${DIR_NAME}_${TIMESTAMP}"
+TMP_BACKUP="${BACKUP_DIR}/${BASENAME}.tmp"
+FINAL_BACKUP="${BACKUP_DIR}/${BASENAME}.xz"
 
 log "INFO" "Starting backup of $SOURCE_FILE (running as $(whoami))"
 
-# Copy the database file
-cp -a "$SOURCE_FILE" "${TMP_BACKUP}"
+# Make sure destination exists
+mkdir -p "$BACKUP_DIR"
 
-if [[ "$COMPRESS" == "true" ]]; then
-    tar -cJf "${BASENAME}.xz" "${TMP_BACKUP}/"
-    mv "${TMP_BACKUP}.gz" "$FINAL_BACKUP"
-else
-    mv "${TMP_BACKUP}/" "$BACKUP_DIR"
-fi
+# Create compressed archive directly
+tar -cJf "$FINAL_BACKUP" -C "$(dirname "$SOURCE_FILE")" "$(basename "$SOURCE_FILE")"
 
 # Basic integrity: file must not be empty
 if [[ ! -s "$FINAL_BACKUP" ]]; then
@@ -81,8 +82,7 @@ log "INFO" "Backup created successfully: $FINAL_BACKUP ($SIZE)"
 # Retention delete backups older than RETENTION_DAYS
 log "INFO" "Applying retention policy (keep last ${RETENTION_DAYS} days)"
 
-find "$BACKUP_DIR" -type f \( -name "${PREFIX}_*.db" -o -name "${PREFIX}_*.db.gz" \) \
-    -mtime +"${RETENTION_DAYS}" -print -delete | while read -r old; do
+find "$BACKUP_DIR" -type f -name "${DIR_NAME}_*.xz" -mtime +"${RETENTION_DAYS}" -print -delete | while read -r old; do
     log "INFO" "Deleted old backup: $old"
 done
 
