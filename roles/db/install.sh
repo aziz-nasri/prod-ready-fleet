@@ -7,7 +7,7 @@ require_root
 require_cmd netplan
 trap trap_cleanup EXIT
 
-
+:<<'COMMENT'
 # Network configuration
 [[ -f "/etc/netplan/${NET_FILE}" ]] || die "Netplan file was not found"
 NETPLAN_FILE="/etc/netplan/${NET_FILE}"
@@ -63,9 +63,9 @@ fi
 
 # setting up Postgresql
  # installig the package
-log_info "Installing PostgreSQL..."
 sudo apt-get update > /dev/null
-pkg_install postgresql postgresql-contrib
+pkg_install postgresql
+pkg_install postgresql-contrib
 log_info "postgresql installed."
 
 log_info "Creating the database..."
@@ -78,62 +78,77 @@ GRANT CONNECT ON DATABASE appdb TO appuser;
 EOF
 log_info "database created."
 
+
 log_info "configuring postgresql..."
-# Finding PostgreSQL config directory
 if [[ -d /etc/postgresql ]]; then
-    PG_VERSION=$(ls /etc/postgresql/ | sort -V | tail -n1)
-    PG_CONF_DIR="/etc/postgresql/${PG_VERSION}/main"
+  PG_VERSION=$(ls /etc/postgresql/)
+  PG_MAIN_DIR="/etc/postgresql/${PG_VERSION}/main"
+  PG_CONF_D="${PG_MAIN_DIR}/conf.d"
+  LAB_CONF="${PG_CONF_D}/lab.conf"
+  PG_HBA_CONF="${PG_MAIN_DIR}/pg_hba.conf"
 else
     die "Could not find PostgreSQL configuration directory."
 fi
-POSTGRESQL_CONF="${PG_CONF_DIR}/postgresql.conf"
-PG_HBA_CONF="${PG_CONF_DIR}/pg_hba.conf"
-
+echo "$PG_VERSION"
+echo "$PG_MAIN_DIR"
+echo "$PG_CONF_D"
+echo "$LAB_CONF"
  # Safety checks
-if [[ ! -f "$POSTGRESQL_CONF" ]]; then
-    die "$POSTGRESQL_CONF not found."
+if [[ ! -d "$PG_CONF_D" ]]; then
+    die "$PG_CONF_D not found."
 fi
 if [[ ! -f "$PG_HBA_CONF" ]]; then
     die "$PG_HBA_CONF not found."
 fi
 
-# editing configuration
- # backing up files
-backup_file $POSTGRESQL_CONF
-backup_file $PG_HBA_CONF
+#PostgreSQL configuration: lab.conf in conf.d
+log_info "Configuring PostgreSQL (writing ${LAB_CONF})..."
 
- # the set config function
-set_config() {
-    local key="$1"
-    local value="$2"
-    local file="$3"
+# Confirm conf.d is actually included by the main config
+if ! grep -q "^include_dir = 'conf.d'" "${PG_MAIN_DIR}/postgresql.conf"; then
+  log_info "conf.d not included by postgresql.conf — adding include directive"
+  backup_file "${PG_MAIN_DIR}/postgresql.conf"
+  echo "include_dir = 'conf.d'" | tee -a "${PG_MAIN_DIR}/postgresql.conf" > /dev/null
+fi
 
-    if grep -qE "^[#\s]*${key}\s*=" "$file"; then
-        sudo sed -i -E "s|^[#\s]*${key}\s*=.*|${key} = ${value}|" "$file"
-    else
-        echo "${key} = ${value}" | sudo tee -a "$file" > /dev/null
-    fi
-}
- # configuring postgresql.conf
-set_config "listen_addresses" "'${LISTEN_IP}'" "$POSTGRESQL_CONF"
-set_config "port" "${PORT}" "$POSTGRESQL_CONF"
+cat > "$LAB_CONF" <<'EOF'
+# lab.conf — project-specific PostgreSQL configuration
+# Managed by lab-fleet-automation. Do not edit postgresql.conf directly for
+# these settings — edit this file instead, so distro defaults stay untouched.
 
-set_config "shared_buffers" "${SHARED_BUFFERS}" "$POSTGRESQL_CONF"
-set_config "effective_cache_size" "${EFFECTIVE_CACHE_SIZE}" "$POSTGRESQL_CONF"
-set_config "work_mem" "${WORK_MEM}" "$POSTGRESQL_CONF"
-set_config "maintenance_work_mem" "${MAINTENANCE_WORK_MEM}" "$POSTGRESQL_CONF"
+# Bind to the internal-zone interface only — never 0.0.0.0
+listen_addresses = '10.0.20.130'
+port = 5432
 
-set_config "logging_collector" "on" "$POSTGRESQL_CONF"
-set_config "log_directory" "'log'" "$POSTGRESQL_CONF"
-set_config "log_filename" "'postgresql-%Y-%m-%d.log'" "$POSTGRESQL_CONF"
-set_config "log_min_duration_statement" "500" "$POSTGRESQL_CONF"
-set_config "log_connections" "on" "$POSTGRESQL_CONF"
-set_config "log_disconnections" "on" "$POSTGRESQL_CONF"
-set_config "log_lock_waits" "on" "$POSTGRESQL_CONF"
+# Connection ceiling, sized for a small lab fleet
+max_connections = 40
 
-set_config "password_encryption" "'scram-sha-256'" "$POSTGRESQL_CONF"
+# Logging — enough to debug without excessive noise
+logging_collector = on
+log_directory = 'log'
+log_filename = 'postgresql-%Y-%m-%d.log'
+log_min_duration_statement = 1000
+log_connections = on
+log_disconnections = on
+
+# Reasonable small-instance memory settings for a lab VM
+shared_buffers = 128MB
+work_mem = 4MB
+maintenance_work_mem = 64MB
+
+# Password auth requires SCRAM, not older/weaker methods
+password_encryption = scram-sha-256
+EOF
+
+chown postgres:postgres "$LAB_CONF"
+chmod 644 "$LAB_CONF"
 
  # configuring pg_hba.conf
+if grep -qE "${DB_NAME}|${DB_USER}|${APP_IP}" "$PG_HBA_CONF"; then
+log_info "pg_hba.conf file is already configured."
+else
+log_info "Configuring pg_hba.conf..."
+backup_file $PG_HBA_CONF
 sudo tee "$PG_HBA_CONF" > /dev/null <<EOF
 
 # TYPE  DATABASE        USER            ADDRESS                 METHOD
@@ -152,11 +167,11 @@ host    ${DB_NAME}      ${DB_USER}      ${APP_IP}/32            scram-sha-256
 host    all             all             0.0.0.0/0               reject
 host    all             all             ::/0                    reject
 EOF
-
+fi
 
 # enabling postgresql
 sudo systemctl enable --now postgresql > /dev/null
-sudo systemctl start postgresql > /dev/null
+systemctl restart postgresql > /dev/null
 log_info "postgresql configured."
 
 
@@ -165,19 +180,41 @@ log_info "Setting up DNS..."
 pkg_install dnsmasq
 
 log_info "Disabling existing resolvers..."
-# disabling existing resolvers
-sudo systemctl stop systemd-resolved > /dev/null
-sudo systemctl disable systemd-resolved > /dev/null
-sudo rm -f /etc/resolv.conf > /dev/null
-echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf  > /dev/null
+
+# Disable the stub listener of systemd-resolved
+sudo mkdir -p /etc/systemd/resolved.conf.d
+sudo tee /etc/systemd/resolved.conf.d/no-stub.conf << EOF
+[Resolve]
+DNSStubListener=no
+DNS=127.0.0.1
+EOF
+sudo systemctl stop systemd-resolved
+sudo systemctl disable systemd-resolved
+sudo rm -f /etc/resolv.conf
+sudo bash -c 'echo "nameserver 10.0.20.1" > /etc/resolv.conf'
 log_info "resolver disabled."
 
 log_info "Configuring DNS (dnsmasq)..."
-# Make sure the main config reads the directory
-grep -q 'conf-dir=/etc/dnsmasq.d' /etc/dnsmasq.conf || \
-  echo 'conf-dir=/etc/dnsmasq.d/,*.conf' | sudo tee -a /etc/dnsmasq.conf
 
+# Make sure the main config reads the directory
+log_info "Ensuring dnsmasq reads additional config files..."
+DNSMASQ_CONF="/etc/dnsmasq.conf"
+CONF_DIR_LINE='conf-dir=/etc/dnsmasq.d/,*.conf'
+
+#Line already exists and is active → do nothing
+if grep -qE '^\s*conf-dir=' "$DNSMASQ_CONF"; then
+    echo "conf-dir is already enabled"
+elif grep -qE '^\s*#\s*conf-dir=' "$DNSMASQ_CONF"; then
+    sed -i -E 's|^\s*#\s*conf-dir=.*|'"$CONF_DIR_LINE"'|' "$DNSMASQ_CONF"
+    echo "Uncommented/updated conf-dir line"
+else
+    echo "Adding conf-dir line..."
+    echo "" >> "$DNSMASQ_CONF"
+    echo "# Include extra config files" >> "$DNSMASQ_CONF"
+    echo "$CONF_DIR_LINE" >> "$DNSMASQ_CONF"
+fi
 # Create custom config
+log_info "Creating custom dnsmasq config for lab.internal..."
 sudo tee /etc/dnsmasq.d/lab.conf > /dev/null <<EOF
 interface=${INTERFACES[0]}
 listen-address=${LISTEN_IP}
@@ -200,35 +237,40 @@ bogus-priv
 log-queries
 log-facility=/var/log/dnsmasq.log
 EOF
-log_info "DNS configured."
 
-:<< 'COMMENT2'
+log_info "DNS configured."
+sudo systemctl enable --now dnsmasq > /dev/null
+sudo systemctl restart dnsmasq > /dev/null
+COMMENT
+
+
 log_info "Setting up database backup..."
+pkg_install rsync
 # backup script
  # creating the backup user
-"$(dirname "$0")/../../common/user_provi.sh" backupuser.conf
+"$(dirname "$0")/../../common/user_provi.sh" "$(dirname "$0")/backupuser.conf"
 
  # adding the source directory to the service file
 sudo sed -i "s/SOURCE_FILE_PLACEHOLDER/${PG_CONF_DIR}/" backup.service &> /dev/null
 
 # Copy the script
-sudo cp backup.sh /usr/local/bin/ > /dev/null
-suod chown backup /usr/local/bin/backup.sh > /dev/null
+sudo cp "$(dirname "$0")/backup.sh" /usr/local/bin/ > /dev/null
+sudo chown backup:backup /usr/local/bin/backup.sh > /dev/null
 sudo chmod 500 /usr/local/bin/backup.sh > /dev/null
 
 # Copy the units
-sudo cp backup.service backup.timer /etc/systemd/system/ > /dev/null
+sudo cp "$(dirname "$0")/backup.service" "$(dirname "$0")/backup.timer" /etc/systemd/system/ > /dev/null
 
 # Create directories
 sudo mkdir -p /var/backups/myapp > /dev/null
-sudo chown backup /var/backups/myapp > /dev/null
+sudo chown backup:backup /var/backups/myapp > /dev/null
 sudo chmod 700 /var/backups/myapp > /dev/null
 
 # Enable and start the timer
 sudo systemctl daemon-reload > /dev/null
 sudo systemctl enable --now backup.timer > /dev/null
 log_info "database backup is set."
-
+::<<'COMMENT2'
 # adding health check script
 log_info "adding health check scripts and cron job..."
 if [[ -d ~/health-check && -f ~/health-check/health-check.sh && -f ~/health-check/health-extra.sh  ]]; then
