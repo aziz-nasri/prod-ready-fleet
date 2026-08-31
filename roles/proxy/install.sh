@@ -7,6 +7,7 @@ require_root
 require_cmd netplan
 trap trap_cleanup EXIT
 
+
 # installing required packages
 pkg_install openssl
 pkg_install curl
@@ -147,7 +148,7 @@ server {
     add_header Referrer-Policy strict-origin-when-cross-origin;
     # ----- Reverse proxy to App server -----
     location / {
-        proxy_pass http://${APP_IP}:${APP_PORT};
+        proxy_pass http://${APP_DOMAIN}:${APP_PORT};
         proxy_http_version 1.1;
         proxy_set_header Host              \$host;
         proxy_set_header X-Real-IP         \$remote_addr;
