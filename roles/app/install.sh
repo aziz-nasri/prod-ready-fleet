@@ -172,14 +172,14 @@ log_info "Application deployment finished."
 # logging 
 sudo journalctl -u $SERVICE_FILE > /dev/null
 
-:<<'COMMENT'
+
 # adding health check script
 log_info "adding health check scripts and cron job..."
-if [[ -d ~/health-check && -f ~/health-check/health-check.sh && -f ~/health-check/health-extra.sh  ]]; then
+if [[ -d "/home/"$SUDO_USER"/health-check" && -f "/home/"$SUDO_USER"/health-check/health-check.sh" && -f "/home/"$SUDO_USER"/health-check/health-extra.sh" ]]; then
     log_warn "Health checks already exsit."
 else
     mkdir /home/"$SUDO_USER"/health-check > /dev/null
-    sudo chown admin:admin  /home/"$SUDO_USER"/health-check > /dev/null
+    sudo chown $SUDO_USER:$SUDO_USER  /home/"$SUDO_USER"/health-check > /dev/null
     sudo chmod 550 /home/"$SUDO_USER"/health-check > /dev/null
     cp "$(dirname "$0")/../../common/health-check.sh" /home/"$SUDO_USER"/health-check > /dev/null
     cp "$(dirname "$0")/health-extra.sh" /home/"$SUDO_USER"/health-check > /dev/null
@@ -189,11 +189,10 @@ else
         CRON_FILE="/etc/cron.d/health-check"
         sudo touch "$CRON_FILE" > /dev/null
         sudo chmod 644 "$CRON_FILE"
-        sudo chown admin:admin "$CRON_FILE"
+        sudo chown $SUDO_USER:$SUDO_USER "$CRON_FILE"
         cat > "$CRON_FILE" << EOF
-30 9 * * * admin /home/${SUDO_USER}/health-check/health-check.sh &> /var/log/health-check_$(date +%Y-%m-%d).log
+30 9 * * * ${SUDO_USER} /home/${SUDO_USER}/health-check/health-check.sh &> /var/log/health-check_$(date +%Y-%m-%d).log
 EOF
     fi
-fi
 log_info "Health check scripts and cron job added successfully."
-COMMENT
+fi
