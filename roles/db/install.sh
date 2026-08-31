@@ -8,7 +8,7 @@ require_root
 require_cmd netplan
 trap trap_cleanup EXIT
 
-
+:<<'COMMENT1'
 # Network configuration
 [[ -f "/etc/netplan/${NET_FILE}" ]] || die "Netplan file was not found"
 NETPLAN_FILE="/etc/netplan/${NET_FILE}"
@@ -60,25 +60,14 @@ if [[ $(( ${#TO_CLOSE_PORTS[@]} + 0 )) -gt 0 ]]; then
     log_info "closing Ports..."
     close_ports $TO_CLOSE_PORTS
 fi
-
+COMMENT1
 
 # setting up Postgresql
  # installig the package
-sudo apt-get update > /dev/null
-pkg_install postgresql
-pkg_install postgresql-contrib
+# sudo apt-get update > /dev/null
+# pkg_install postgresql
+# pkg_install postgresql-contrib
 log_info "postgresql installed."
-
-log_info "Creating the database..."
- # creating the database
-sudo -u postgres psql << EOF
-CREATE USER appuser WITH PASSWORD '${APPUSER_PASSWD}';
-CREATE DATABASE appdb OWNER appuser;
-REVOKE ALL ON DATABASE appdb FROM PUBLIC;
-GRANT CONNECT ON DATABASE appdb TO appuser;
-EOF
-log_info "database created."
-
 
 log_info "configuring postgresql..."
 if [[ -d /etc/postgresql ]]; then
@@ -99,6 +88,7 @@ if [[ ! -f "$PG_HBA_CONF" ]]; then
     die "$PG_HBA_CONF not found."
 fi
 
+
 #PostgreSQL configuration: lab.conf in conf.d
 log_info "Configuring PostgreSQL (writing ${LAB_CONF})..."
 
@@ -109,13 +99,13 @@ if ! grep -q "^include_dir = 'conf.d'" "${PG_MAIN_DIR}/postgresql.conf"; then
   echo "include_dir = 'conf.d'" | tee -a "${PG_MAIN_DIR}/postgresql.conf" > /dev/null
 fi
 
-cat > "$LAB_CONF" <<'EOF'
+cat > "$LAB_CONF" <<EOF
 # lab.conf — project-specific PostgreSQL configuration
 # Managed by lab-fleet-automation. Do not edit postgresql.conf directly for
 # these settings — edit this file instead, so distro defaults stay untouched.
 
-# Bind to the internal-zone interface only — never 0.0.0.0
-listen_addresses = '10.0.20.130'
+# Bind to the internal-zone interface only
+listen_addresses = '10.0.20.129'
 port = 5432
 
 # Connection ceiling, sized for a small lab fleet
@@ -124,7 +114,7 @@ max_connections = 40
 # Logging — enough to debug without excessive noise
 logging_collector = on
 log_directory = 'log'
-log_filename = 'postgresql-%Y-%m-%d.log'
+log_filename = 'postgresql-$(date +%Y-%m-%d).log'
 log_min_duration_statement = 1000
 log_connections = on
 log_disconnections = on
@@ -168,11 +158,21 @@ EOF
 fi
 
 # enabling postgresql
-sudo systemctl enable --now postgresql > /dev/null
-systemctl restart postgresql > /dev/null
+sudo systemctl enable postgresql@${PG_VERSION}-main --now > /dev/null
+sudo systemctl start postgresql@${PG_VERSION}-main > /dev/null
 log_info "postgresql configured."
 
+log_info "Creating the database..."
+ # creating the database
+sudo -u postgres psql << EOF
+CREATE USER appuser WITH PASSWORD '${APPUSER_PASSWD}';
+CREATE DATABASE appdb OWNER appuser;
+REVOKE ALL ON DATABASE appdb FROM PUBLIC;
+GRANT CONNECT ON DATABASE appdb TO appuser;
+EOF
+log_info "database created."
 
+:<<'COMMENT2'
 log_info "Setting up DNS..."
 # installing dnsmasq
 pkg_install dnsmasq
