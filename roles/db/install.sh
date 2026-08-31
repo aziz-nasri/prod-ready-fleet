@@ -8,7 +8,7 @@ require_root
 require_cmd netplan
 trap trap_cleanup EXIT
 
-:<<'COMMENT1'
+
 # Network configuration
 [[ -f "/etc/netplan/${NET_FILE}" ]] || die "Netplan file was not found"
 NETPLAN_FILE="/etc/netplan/${NET_FILE}"
@@ -60,7 +60,7 @@ if [[ $(( ${#TO_CLOSE_PORTS[@]} + 0 )) -gt 0 ]]; then
     log_info "closing Ports..."
     close_ports $TO_CLOSE_PORTS
 fi
-COMMENT1
+
 
 # setting up Postgresql
  # installig the package
@@ -172,7 +172,7 @@ GRANT CONNECT ON DATABASE appdb TO appuser;
 EOF
 log_info "database created."
 
-:<<'COMMENT2'
+
 log_info "Setting up DNS..."
 # installing dnsmasq
 pkg_install dnsmasq
