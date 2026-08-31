@@ -2,15 +2,15 @@
 
 set -euo pipefail
 source "$(dirname "$0")/../../common/lib.sh"
-source ./app.conf
+source "$(dirname "$0")/app.conf"
 require_root
 require_cmd netplan
 trap trap_cleanup EXIT
 
-
+:<<'SECTION1'
 # Network configuration
-[[ -f /etc/netplan/01-netcfg.yaml ]] || die "Netplan file was not found"
-NETPLAN_FILE="/etc/netplan/01-netcfg.yaml"
+[[ -f "/etc/netplan/${NET_FILE}" ]] || die "Netplan file was not found"
+NETPLAN_FILE="/etc/netplan/${NET_FILE}"
 
 [[ ${#INTERFACES[@]} -gt 0 ]] || die "No interfaces defined in app.conf"
 
@@ -34,7 +34,7 @@ generate_netplan_yaml() {
         echo "        - to: default"
         echo "          via: $DEFAULT_ROUTE_VIA"
       fi
-      if [[ ${#DNS_SERVERS[@]:-0} -gt 0 ]]; then
+      if [[ $(( ${#DNS_SERVERS[@]} + 0 )) -gt 0 ]]; then
         echo "      nameservers:"
         echo "        addresses: [$(IFS=,; echo "${DNS_SERVERS[*]}")]"
       fi
@@ -51,37 +51,46 @@ chmod 600 "$NETPLAN_FILE"
 
  # appling changes
 log_info "Applying netplan configuration..."
-netplan apply
+netplan apply &>/dev/null || die "Failed to apply netplan configuration"
 log_info "netpaln configuration applied."
  # closing unecessary listening ports 
 log_info "Closing ports..."
-close_ports $TO_BE_ClOSED_PORTS
+if [[ $(( ${#TO_CLOSE_PORTS[@]} + 0 )) -gt 0 ]]; then
+    log_info "closing Ports..."
+    close_ports $TO_CLOSE_PORTS
+fi
+SECTION1
 
 # deploying the application.
 log_info "Deploying the application..."
 # Step 1: system packages
 log_info "Installing required packages..."
 apt-get update -qq > /dev/null
-pkg_install python3 python3-venv python3-pip postgresql-client > /dev/null
+pkg_install python3 > /dev/null
+pkg_install python3-venv > /dev/null
+pkg_install python3-pip > /dev/null
+pkg_install postgresql-client > /dev/null
+
 
 # Step 2: creating the application user.
 if id "$APP_USER" &>/dev/null; then
   log_info "User $APP_USER already exists, skipping"
 else
 log_info "Creating app user..."
-../../common/user_provi.sh appuser.conf
+"$(dirname "$0")/../../common/user_provi.sh" "$(dirname "$0")/appuser.conf"
+fi
 mkdir -p "$APP_DIR"  > /dev/null
 chown "$APP_USER:$APP_USER" "$APP_DIR" > /dev/null
-log_info "Appuser created."
-fi
+log_info "Appuser is set up."
 
 #Step 3: app code.
 log_info "Deploying application code..."
-cp "$SCRIPT_DIR/app.py" "$APP_DIR/app.py" > /dev/null
-cp "$SCRIPT_DIR/requirements.txt" "$APP_DIR/requirements.txt" > /dev/null
+cp "$(dirname "$0")/app.py" "$APP_DIR" > /dev/null
+cp "$(dirname "$0")/requirements.txt" "$APP_DIR" > /dev/null
 chown "$APP_USER:$APP_USER" "$APP_DIR/app.py" "$APP_DIR/requirements.txt" > /dev/null
 log_info "Finished deploying app code."
 
+:<<'SECTION3'
 # Step 4: virtualenv + dependencies
 log_info "setting up virtualenv and dependecies..."
 if [[ -x "$VENV_DIR/bin/python" ]]; then
@@ -99,9 +108,9 @@ log_info "Finished setting up."
 # Step 5: environment file
 log_info "setting up environment file..."
 if [[ -f "$ENV_FILE" ]]; then
-  log_info ".env already present, leaving existing values in place"
+  log_info "app.env already present, leaving existing values in place"
 else
-  log_info "Writing default .env"
+  log_info "Writing default app.env"
   cat > "$ENV_FILE" <<EOF
 DB_HOST=$DB_HOST
 DB_NAME=$DB_NAME
@@ -124,7 +133,8 @@ CREATE TABLE IF NOT EXISTS notes (
 );
 EOF
 log_info "notes table exists."
-
+SECTION3
+:<<'SECTION4'
 # Step 3: creating the app.service
 log_info "Writing systemd unit"
 if [[ ! -f $SERVICE_FILE ]]; then
@@ -166,7 +176,8 @@ log_info "Application deployment finished."
 
 # logging 
 sudo journalclt -u $SERVICE_FILE > /dev/null
-
+SECTION4
+:<<'COMMENT'
 # adding health check script
 log_info "adding health check scripts and cron job..."
 if [[ -d ~/health-check && -f ~/health-check/health-check.sh && -f ~/health-check/health-extra.sh  ]]; then
@@ -190,3 +201,4 @@ EOF
     fi
 fi
 log_info "Health check scripts and cron job added successfully."
+COMMENT
