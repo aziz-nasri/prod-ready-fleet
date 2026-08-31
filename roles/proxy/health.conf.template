@@ -1,6 +1,8 @@
 CERT="" # certificate full path
 DAYS= # days to check on for certificate validation
-APP_IP="" # application server IP address
+APP_DOMAIN="" # application server Domain name
+APP_PORT=""
 DISK_THRES= # persentage of used disk threshold
 MEM_THRES= # persentage of memory used threshold
 CPU_THRES= # persentage of idle cpu threshold
+SERVICES=("") # services to check

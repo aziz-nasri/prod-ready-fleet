@@ -7,3 +7,4 @@ DNS_PORT="" # DNS connection port
 DISK_THRES= # persentage of used disk threshold
 MEM_THRES= # persentage of memory used threshold
 CPU_THRES= # persentage of idle cpu threshold
+PG_PASSWORD="" # Database password for the appuser
