@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
-source "$(dirname "$0")/../roles/proxy/health.conf"
+source ./health.conf
 
 echo "======================================================"
 echo "==================SYSTEM STATUS===================="
@@ -15,7 +15,7 @@ echo "Number of running processes: $(ps -e --no-headers | wc -l)"
 echo "======================================================"
 echo "==================SYSTEM RESOURCES===================="
 echo -e "======================================================\n"
-echo "Load average: $(uptime | cut -d"," -f3)"
+echo "$(uptime | cut -d"," -f3)"
 echo "CPU usage:"
 echo "--------------------------------------------------------------"
 CPU=$(sar -u 1 7)
@@ -106,7 +106,7 @@ fi
 echo -e "--------------------------------------------------------------\n"
 
 # runnig server specific health check
-"$(dirname "$0")/../roles/proxy/health-extra.sh"
+./health-extra.sh
 
 echo -e "\nRecent errors."
 echo "--------------------------------------------------------------"
