@@ -3,11 +3,12 @@
 set -euo pipefail
 source "$(dirname "$0")/../../common/lib.sh"
 source "$(dirname "$0")/db-server.conf"
+source "$(dirname "$0")/backupuser.conf"
 require_root
 require_cmd netplan
 trap trap_cleanup EXIT
 
-:<<'COMMENT'
+:<<'COMMENT1'
 # Network configuration
 [[ -f "/etc/netplan/${NET_FILE}" ]] || die "Netplan file was not found"
 NETPLAN_FILE="/etc/netplan/${NET_FILE}"
@@ -77,6 +78,7 @@ REVOKE ALL ON DATABASE appdb FROM PUBLIC;
 GRANT CONNECT ON DATABASE appdb TO appuser;
 EOF
 log_info "database created."
+COMMENT1
 
 
 log_info "configuring postgresql..."
@@ -89,10 +91,7 @@ if [[ -d /etc/postgresql ]]; then
 else
     die "Could not find PostgreSQL configuration directory."
 fi
-echo "$PG_VERSION"
-echo "$PG_MAIN_DIR"
-echo "$PG_CONF_D"
-echo "$LAB_CONF"
+:<<'COMMENT3'
  # Safety checks
 if [[ ! -d "$PG_CONF_D" ]]; then
     die "$PG_CONF_D not found."
@@ -241,36 +240,50 @@ EOF
 log_info "DNS configured."
 sudo systemctl enable --now dnsmasq > /dev/null
 sudo systemctl restart dnsmasq > /dev/null
-COMMENT
-
+COMMENT3
 
 log_info "Setting up database backup..."
-pkg_install rsync
 # backup script
  # creating the backup user
 "$(dirname "$0")/../../common/user_provi.sh" "$(dirname "$0")/backupuser.conf"
-
- # adding the source directory to the service file
-sudo sed -i "s/SOURCE_FILE_PLACEHOLDER/${PG_CONF_DIR}/" backup.service &> /dev/null
-
 # Copy the script
 sudo cp "$(dirname "$0")/backup.sh" /usr/local/bin/ > /dev/null
-sudo chown backup:backup /usr/local/bin/backup.sh > /dev/null
+sudo chown ${USERNAME}:${USER_GROUP} /usr/local/bin/backup.sh > /dev/null
 sudo chmod 500 /usr/local/bin/backup.sh > /dev/null
+ # adding the source directory to the service file
+TO_BACKUP_DIR="${PG_MAIN_DIR}"
+sudo setfacl -m u:${USERNAME}:--x /etc/postgresql
+sudo setfacl -m u:${USERNAME}:--x /etc/postgresql/${PG_VERSION}
+
+# Main directory and everything inside (read + enter directories)
+sudo setfacl -R -m u:${USERNAME}:rX "$PG_MAIN_DIR"
+sudo sed -i "s|SOURCE_FILE_PLACEHOLDER|${TO_BACKUP_DIR}|g" "$(dirname "$0")/backup.service" > /dev/null
+sudo sed -i "s|SOURCE_FILE_PLACEHOLDER|${TO_BACKUP_DIR}|g" "$(dirname "$0")/backup.env" > /dev/null
+
+# creating the log file
+sudo touch /var/log/backup.log > /dev/null
+sudo chown ${USERNAME}:${USER_GROUP} /var/log/backup.log > /dev/null
+sudo chmod 660 /var/log/backup.log > /dev/null
 
 # Copy the units
 sudo cp "$(dirname "$0")/backup.service" "$(dirname "$0")/backup.timer" /etc/systemd/system/ > /dev/null
+# create the environment file, set permissions and copy it to /opt/app
+sudo mkdir -p /opt/app > /dev/null
+sudo chown ${USERNAME}:${USER_GROUP} /opt/app > /dev/null
+sudo chmod 750 /opt/app > /dev/null
+sudo cp "$(dirname "$0")/backup.env" /opt/app > /dev/null
 
 # Create directories
 sudo mkdir -p /var/backups/myapp > /dev/null
-sudo chown backup:backup /var/backups/myapp > /dev/null
+sudo chown ${USERNAME}:${USER_GROUP} /var/backups/myapp > /dev/null
 sudo chmod 700 /var/backups/myapp > /dev/null
 
 # Enable and start the timer
 sudo systemctl daemon-reload > /dev/null
 sudo systemctl enable --now backup.timer > /dev/null
 log_info "database backup is set."
-::<<'COMMENT2'
+
+:<<'COMMENT2'
 # adding health check script
 log_info "adding health check scripts and cron job..."
 if [[ -d ~/health-check && -f ~/health-check/health-check.sh && -f ~/health-check/health-extra.sh  ]]; then
