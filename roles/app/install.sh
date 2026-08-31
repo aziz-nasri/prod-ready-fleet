@@ -7,7 +7,7 @@ require_root
 require_cmd netplan
 trap trap_cleanup EXIT
 
-:<<'SECTION1'
+
 # Network configuration
 [[ -f "/etc/netplan/${NET_FILE}" ]] || die "Netplan file was not found"
 NETPLAN_FILE="/etc/netplan/${NET_FILE}"
@@ -59,7 +59,6 @@ if [[ $(( ${#TO_CLOSE_PORTS[@]} + 0 )) -gt 0 ]]; then
     log_info "closing Ports..."
     close_ports $TO_CLOSE_PORTS
 fi
-SECTION1
 
 # deploying the application.
 log_info "Deploying the application..."
@@ -71,7 +70,6 @@ pkg_install python3-venv > /dev/null
 pkg_install python3-pip > /dev/null
 pkg_install postgresql-client > /dev/null
 
-
 # Step 2: creating the application user.
 if id "$APP_USER" &>/dev/null; then
   log_info "User $APP_USER already exists, skipping"
@@ -82,7 +80,6 @@ fi
 mkdir -p "$APP_DIR"  > /dev/null
 chown "$APP_USER:$APP_USER" "$APP_DIR" > /dev/null
 log_info "Appuser is set up."
-
 #Step 3: app code.
 log_info "Deploying application code..."
 cp "$(dirname "$0")/app.py" "$APP_DIR" > /dev/null
@@ -90,7 +87,6 @@ cp "$(dirname "$0")/requirements.txt" "$APP_DIR" > /dev/null
 chown "$APP_USER:$APP_USER" "$APP_DIR/app.py" "$APP_DIR/requirements.txt" > /dev/null
 log_info "Finished deploying app code."
 
-:<<'SECTION3'
 # Step 4: virtualenv + dependencies
 log_info "setting up virtualenv and dependecies..."
 if [[ -x "$VENV_DIR/bin/python" ]]; then
@@ -133,8 +129,7 @@ CREATE TABLE IF NOT EXISTS notes (
 );
 EOF
 log_info "notes table exists."
-SECTION3
-:<<'SECTION4'
+
 # Step 3: creating the app.service
 log_info "Writing systemd unit"
 if [[ ! -f $SERVICE_FILE ]]; then
@@ -165,18 +160,18 @@ ReadWritePaths=${APP_DIR}
 WantedBy=multi-user.target
 EOF
 
-sudo systemctl deamon-reload > /dev/null
-sudo systemctl enable --now $SERVICE_FILE > /dev/null
-sudo systemctl start $SERVICE_FILE > /dev/null
-log_info "systemd unit created and running."
+log_info "systemd unit created."
 else
   log_warn "systemd unit already exsit."
 fi
+sudo systemctl daemon-reload > /dev/null
+sudo systemctl enable --now $SERVICE_FILE > /dev/null
+sudo systemctl start "${SERVICE_FILE##*/}" > /dev/null
 log_info "Application deployment finished."
 
 # logging 
-sudo journalclt -u $SERVICE_FILE > /dev/null
-SECTION4
+sudo journalctl -u $SERVICE_FILE > /dev/null
+
 :<<'COMMENT'
 # adding health check script
 log_info "adding health check scripts and cron job..."
