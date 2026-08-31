@@ -11,11 +11,12 @@ if id "$USERNAME" &>/dev/null; then
 fi
 
 # Creating the user
+groupadd "$USER_GROUP" > /dev/null
 useradd -m \
         -d "$HOME_DIR" \
         -s "$SHELL" \
         -c "$FULLNAME" \
-        -G "$GROUPS" \
+        -g "$USER_GROUP" \
         "$USERNAME"
 
 if [[ $TEMP_PASSWD == "yes" ]]; then
@@ -30,7 +31,7 @@ if [[ $SET_SSH == "yes" ]]; then
     cp /path/to/authorized_keys "$HOME_DIR/.ssh/authorized_keys"
     chmod 700 "$HOME_DIR/.ssh"
     chmod 600 "$HOME_DIR/.ssh/authorized_keys"
-    chown -R "$USERNAME:$USERNAME" "$HOME_DIR/.ssh"
+    chown -R "$USERNAME:$USER_GROUP" "$HOME_DIR/.ssh"
 fi
 
 # Set permissions on home directory
