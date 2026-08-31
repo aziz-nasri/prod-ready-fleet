@@ -17,6 +17,23 @@ else
 fi
 echo ""
 
+echo "Check Database accepts app role connection:"
+PGPASSWORD="$PG_PASSWORD" psql -h $DATA_IP -U appuser -d appdb -c 'SELECT 1' > /dev/null
+if [[ $? == 0 ]]; then
+    echo "OK: Database accepts app role connections and credential path works."
+else
+    echo "ERROR: Database does not accept app role connections or credentials failed."
+fi
+echo ""
+
+echo "Checking DNS forwarding:"
+if dig +time=2 +tries=1 +short example.com >/dev/null 2>&1; then
+  echo "OK: External resolution succeeded."
+else
+  echo "ERROR: External resolution failed, forwarding appears disabled"
+fi
+echo ""
+
 # Get values
 current=$(systemctl show -p MemoryCurrent --value "$SERVICE")
 max=$(systemctl show -p MemoryMax --value "$SERVICE")
