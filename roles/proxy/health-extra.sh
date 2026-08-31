@@ -1,33 +1,33 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+source ./health.conf
 
 
-echo "Checking nginx (https respond locally)"
-HTTP_CODE="$(curl -sk -o /dev/null -w '%{http_code}' https://localhost)"
-echo "Returned HTTP status: ${HTTP_CODE}."
-if [[ $HTTP_CODE == 200 ]]; then
-    echo "OK: nginx is up."
+echo "Checking nginx backend reachability:"
+HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" "http://${APP_DOMAIN}:${APP_PORT}/health" 2>/dev/null || true)
+
+# Check if curl failed
+if [ "$HTTP_CODE" = "000" ]; then
+    echo "ERROR: Network failure. Proxy cannot reach the app server at all."
+# Evaluate the HTTP response code if network succeeded
+elif [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 600 ]; then
+    echo "SUCCESS: Proxy reached the app server! (HTTP Status: $HTTP_CODE)"
 else
-    echo "ERROR: nginx is down."
-fi 
+    echo "WARNING: Received unexpected status code: $HTTP_CODE"
+fi
+echo "" 
 
-echo -e "Cert TLS check:\n"
-if openssl x509 -checkend $((DAYS * 86400)) -noout -in "$CERT"; then
+echo "Cert TLS check:"
+if openssl x509 -checkend $(($DAYS * 86400)) -noout -in "$CERT"; then
     echo "Certificate is valid for at least $DAYS more days"
 else
     echo "WARNING: Certificate expires in less than $DAYS days!"
 fi
+echo ""
 
-echo "Check backend is reachable:"
-ping -c 3 $APP_IP &> /dev/null
-if [[ $? == 0 ]]; then
-    echo "OK: Backend is reachable."
-else
-    echo "ERROR: Backend is unreachable."
-fi 
 
-echo -e "check NAT/forwarding still enabled:\n"
+echo -e "check NAT/forwarding still enabled:"
 sysctl net.ipv4.ip_forward | grep 1 &> /dev/null
 if [[ $? == 0 ]]; then
     echo "OK: IP forwarding is enable (net.ipv4.ip_forward=1)."
@@ -47,5 +47,5 @@ echo -e "======================================================\n"
 # nginx recent logs
 echo -e "\nRecent nginx service logs:"
 echo "--------------------------------------------------------------"
-sudo jornalctl nginx | head -n 30
+sudo journalctl -u nginx | head -n 30
 echo -e "--------------------------------------------------------------\n"
