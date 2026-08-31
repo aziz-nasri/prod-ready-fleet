@@ -37,28 +37,26 @@ app_fw(){
 log_info "Adding firewall rules to the Application server..."
 nft add chain inet filter output '{ type filter hook output priority 0; policy drop; }' > /dev/null
 
-nft add rule inet filter input iifname "$APP_INT_IF" ip saddr "$MGMT_NET" tcp dport "$SSH_PORT" accept
+nft add rule inet filter input iifname "$APP_INT_IF" ip saddr "$MGMT_NET" tcp dport "$SSH_PORT" accept > /dev/null
 nft add rule inet filter input ip saddr "$PROXY_IP" tcp dport "$APP_PORT" accept > /dev/null
-nft add rule inet filter input tcp dport "$APP_PORT" drop > /dev/null
+
 
 nft add rule inet filter output oif lo accept > /dev/null
 nft add rule inet filter output ct state established,related accept > /dev/null
 nft add rule inet filter output ip daddr "$DATA_TIER" tcp dport "$DATABASE_PORT" accept > /dev/null
-nft add rule inet filter output ip daddr "$DATA_TIER" udp dport "$DNS_PORT" accept > /dev/null
-nft add rule inet filter output ip daddr "$DATA_TIER" tcp dport "$DNS_PORT" accept > /dev/null
-nft add rule inet filter output tcp dport { "$HTTP_PORT", "$HTTPS_PORT" } accept > /dev/null
+nft add rule inet filter output ip daddr "$PROXY_IP" udp dport "$DNS_PORT" accept > /dev/null
+nft add rule inet filter output ip daddr "$PROXY_IP" tcp dport "$DNS_PORT" accept > /dev/null
+nft add rule inet filter output ip saddr "$PROXY_IP" tcp dport { "$HTTP_PORT", "$HTTPS_PORT" } accept > /dev/null
 }
 
 # Database + DNS server Firewall configurations
 db_fw(){
 log_info "Adding firewall rules to the database server..."
 nft add rule inet filter input ct state invalid drop > /dev/null
-nft add rule inet filter input iifname "$DB_INT_IF" ip saddr "$MGMT_NET" tcp dport "$SSH_PORT" accept
-nft add rule inet filter input ip saddr "$APP_TIER" tcp dport "$DATABASE_PORT" accept
-nft add rule inet filter input ip saddr "$APP_TIER" udp dport "$DNS_PORT" accept
-nft add rule inet filter input ip saddr "$APP_TIER" tcp dport "$DNS_PORT" accept
-nft add rule inet filter input ip saddr "$PROXY_IP" udp dport "$DNS_PORT"  accept > /dev/null
-nft add rule inet filter input ip saddr "$PROXY_IP" tcp dport "$DNS_PORT"  accept > /dev/null
+nft add rule inet filter input iifname "$DB_INT_IF" ip saddr "$MGMT_NET" tcp dport "$SSH_PORT" accept > /dev/null
+nft add rule inet filter input ip saddr "$APP_TIER" tcp dport "$DATABASE_PORT" accept > /dev/null
+nft add rule inet filter input ip saddr "$PROXY_IP" tcp dport "$DNS_PORT" accept > /dev/null
+nft add rule inet filter input ip saddr "$PROXY_IP" udp dport "$DNS_PORT" accept > /dev/null
 
 nft add chain inet filter output '{ type filter hook output priority 0; policy drop; }' > /dev/null
 nft add rule inet filter output oif lo accept > /dev/null
