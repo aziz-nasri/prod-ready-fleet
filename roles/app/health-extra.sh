@@ -1,27 +1,27 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
-source health.conf
+source ./health.conf
 
-echo -e "Data tier reachability:\n"
-nc -zv $DATA_IP $DATA_PORT &> /dev/null
-if [[ $? -ep 0 ]]; then
+echo "Data tier reachability:"
+if timeout 3 bash -c "</dev/tcp/$DATA_IP/$DATA_PORT" &>/dev/null; then
     echo "OK: Database server is reachable through port ${DATA_PORT}"
 else
-    echo "ERROR: Database server is not reachable through port ${DATA_PORT}."
+     echo "ERROR: Database server is not reachable through port ${DATA_PORT}."
 fi
-nc -zv $DNS_IP $DNS_PORT &> /dev/null
-if [[ $? -ep 0 ]]; then
+
+if timeout 3 bash -c "</dev/tcp/$DNS_IP/$DNS_PORT" &>/dev/null; then
     echo "OK: DNS is reachable through port ${DNS_PORT}."
 else
     echo "ERROR: DNS is not reachable through port ${DNS_PORT}."
 fi
+echo ""
 
 # Get values
 current=$(systemctl show -p MemoryCurrent --value "$SERVICE")
 max=$(systemctl show -p MemoryMax --value "$SERVICE")
 # Handle unlimited (infinity)
-if [[ "$max" == "infinity" || "$max" -eq 0 ]]; then
+if [[ "$max" == "infinity" || "$max" == 0 ]]; then
     echo "No MemoryMax limit set"
 fi
 # Calculate percentage
@@ -39,5 +39,5 @@ echo -e "======================================================\n"
 # app.service recent logs
 echo "Recent myapp service logs:"
 echo "--------------------------------------------------------------"
-sudo jornalctl app.service | head -n 30
+sudo journalctl -u $SERVICE | head -n 30
 echo -e "--------------------------------------------------------------\n"
