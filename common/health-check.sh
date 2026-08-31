@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
-source ./health.conf
+source "$(dirname "$0")/../roles/proxy/health.conf"
 
 echo "======================================================"
 echo "==================SYSTEM STATUS===================="
 echo -e "======================================================\n"
 echo "Hostname: $(hostname)"
-echo "kernal version: $(hostnamectl | grep Kernel | cut -d":" -f2)"
+echo "Kernel version: $(hostnamectl | grep Kernel | cut -d":" -f2)"
 echo "Current Date: $(date)"
 echo "Uptime: $(uptime | cut -d"," -f1,2)"
-echo "Number of runnig processes: $(ps -e --no-headers | wc -l)"
+echo "Number of running processes: $(ps -e --no-headers | wc -l)"
 
 echo "======================================================"
 echo "==================SYSTEM RESOURCES===================="
@@ -43,7 +43,7 @@ free -h | awk 'NR==1 || NR==3'
 echo -e "--------------------------------------------------------------\n"
 DISK_USG=$(df -h / | awk 'NR==2 {print $5}')
 echo "Disk usage: ${DISK_USG}"
-if [[ $($DISK_USG | tr -d '%') > $DISK_THRES ]]; then
+if [[ $(echo "$DISK_USG" | tr -d '%') > $DISK_THRES ]]; then
     echo "WARNING: Available Disk is low, ${DISK_USG}."
 else
     echo "OK: Sufficient Disk available"
@@ -100,18 +100,15 @@ echo "Firewall ruleset:"
 echo "--------------------------------------------------------------"
 if ! command -v nft &>/dev/null; then
   echo "ERROR: nftables is not installed (nft command not found)."
-fi
-if nft list ruleset 2>/dev/null | grep -qE '^\s+[0-9]+\s+'; then
-  echo "OK: Firewall rules are configured (nftables)."
 else
-  echo "ERROR: No firewall rules found in nftables."
+  sudo nft list ruleset
 fi
 echo -e "--------------------------------------------------------------\n"
 
 # runnig server specific health check
-./health-extra.sh
+"$(dirname "$0")/../roles/proxy/health-extra.sh"
 
 echo -e "\nRecent errors."
 echo "--------------------------------------------------------------"
-sudo jornalctl -p err | head -n 30
+sudo journalctl -p err | head -n 30
 echo -e "--------------------------------------------------------------\n"
