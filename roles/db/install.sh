@@ -8,7 +8,7 @@ require_root
 require_cmd netplan
 trap trap_cleanup EXIT
 
-:<<'COMMENT1'
+
 # Network configuration
 [[ -f "/etc/netplan/${NET_FILE}" ]] || die "Netplan file was not found"
 NETPLAN_FILE="/etc/netplan/${NET_FILE}"
@@ -78,7 +78,6 @@ REVOKE ALL ON DATABASE appdb FROM PUBLIC;
 GRANT CONNECT ON DATABASE appdb TO appuser;
 EOF
 log_info "database created."
-COMMENT1
 
 
 log_info "configuring postgresql..."
@@ -91,7 +90,7 @@ if [[ -d /etc/postgresql ]]; then
 else
     die "Could not find PostgreSQL configuration directory."
 fi
-:<<'COMMENT3'
+
  # Safety checks
 if [[ ! -d "$PG_CONF_D" ]]; then
     die "$PG_CONF_D not found."
@@ -178,21 +177,6 @@ log_info "Setting up DNS..."
 # installing dnsmasq
 pkg_install dnsmasq
 
-log_info "Disabling existing resolvers..."
-
-# Disable the stub listener of systemd-resolved
-sudo mkdir -p /etc/systemd/resolved.conf.d
-sudo tee /etc/systemd/resolved.conf.d/no-stub.conf << EOF
-[Resolve]
-DNSStubListener=no
-DNS=127.0.0.1
-EOF
-sudo systemctl stop systemd-resolved
-sudo systemctl disable systemd-resolved
-sudo rm -f /etc/resolv.conf
-sudo bash -c 'echo "nameserver 10.0.20.1" > /etc/resolv.conf'
-log_info "resolver disabled."
-
 log_info "Configuring DNS (dnsmasq)..."
 
 # Make sure the main config reads the directory
@@ -240,7 +224,7 @@ EOF
 log_info "DNS configured."
 sudo systemctl enable --now dnsmasq > /dev/null
 sudo systemctl restart dnsmasq > /dev/null
-COMMENT3
+
 
 log_info "Setting up database backup..."
 # backup script

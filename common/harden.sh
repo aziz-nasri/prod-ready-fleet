@@ -28,6 +28,29 @@ EOF
 log_info "Installing netplan.io package..."
 pkg_install netplan.io
 
+# hostname resolution locally
+HOSTNAME=$(hostname)
+if grep -q "127.0.1.1[[:space:]]*${HOSTNAME}" /etc/hosts 2>/dev/null; then
+  log_info "Hostname entry for $HOSTNAME already present, skipping"
+else
+  log_info "Adding hostname resolution for $HOSTNAME"
+  echo "127.0.1.1 ${HOSTNAME}" | sudo tee -a /etc/hosts > /dev/null
+fi
+
+# Disabling existing resolvers
+log_info "Disabling existing resolvers..."
+sudo mkdir -p /etc/systemd/resolved.conf.d
+sudo tee /etc/systemd/resolved.conf.d/no-stub.conf << EOF
+[Resolve]
+DNSStubListener=no
+DNS=127.0.0.1
+EOF
+sudo systemctl stop systemd-resolved
+sudo systemctl disable systemd-resolved
+sudo rm -f /etc/resolv.conf
+sudo bash -c 'echo "nameserver 10.0.20.1" > /etc/resolv.conf'
+log_info "resolver disabled."
+
 # System upadte
 log_info "Setting up automatic system update..."
 pkg_install unattended-upgrades
@@ -41,14 +64,6 @@ sudo systemctl enable --now chrony > /dev/null
 log_info "Chrony is set up and running."
 log_info "Automatic system update is set up."
 
-# hostname resolution locally
-HOSTNAME=$(hostname)
-if grep -q "127.0.1.1[[:space:]]*${HOSTNAME}" /etc/hosts 2>/dev/null; then
-  log_info "Hostname entry for $HOSTNAME already present, skipping"
-else
-  log_info "Adding hostname resolution for $HOSTNAME"
-  echo "127.0.1.1 ${HOSTNAME}" | sudo tee -a /etc/hosts > /dev/null
-fi
 
 # Minimizing the attack surface.
  # remove unused packages
