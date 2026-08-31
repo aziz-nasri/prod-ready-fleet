@@ -21,7 +21,7 @@ EOF
         fi
     done
     sudo touch /var/log/system-updates.log > /dev/null
-    sudo cp "$(dirname "$0")/common/system_update.sh" /usr/bin/ > /dev/null
+    sudo cp "$(dirname "$0")/system_update.sh" /usr/bin/ > /dev/null
 }
 
 # installing the netplan package for network configurations
