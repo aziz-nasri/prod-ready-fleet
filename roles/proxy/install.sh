@@ -136,7 +136,7 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name ${PROXY_IP};
+    server_name ${PROXY_IP} localhost;
     ssl_certificate     /etc/nginx/ssl/certs/myapp.crt;
     ssl_certificate_key /etc/nginx/ssl/private/myapp.key;
     ssl_protocols       TLSv1.2 TLSv1.3;
