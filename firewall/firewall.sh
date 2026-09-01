@@ -10,10 +10,7 @@ trap trap_cleanup EXIT
 proxy_fw(){
 log_info "Adding firewall rules to the proxy server..."
 nft add chain inet filter forward '{ type filter hook forward priority 0; policy drop; }' > /dev/null
-nft add chain inet filter output '{ type filter hook output priority 0; policy drop; }' > /dev/null
 
-nft add rule inet filter output oif lo accept > /dev/null
-nft add rule inet filter output ct state established,related accept > /dev/null
 nft add rule inet filter output oifname "$NAT_IF" udp dport "$DNS_PORT" accept > /dev/null
 nft add rule inet filter output oifname "$NAT_IF" tcp dport "$DNS_PORT" accept > /dev/null
 nft add rule inet filter output oifname "$INT_IF" udp dport "$DNS_PORT" accept > /dev/null
@@ -37,14 +34,9 @@ nft add rule inet nat postrouting oifname "$NAT_IF" masquerade > /dev/null
 # Application server Firewall configurations
 app_fw(){
 log_info "Adding firewall rules to the Application server..."
-nft add chain inet filter output '{ type filter hook output priority 0; policy drop; }' > /dev/null
-
 nft add rule inet filter input iifname "$APP_INT_IF" ip saddr "$MGMT_NET" tcp dport "$SSH_PORT" accept > /dev/null
 nft add rule inet filter input ip saddr "$PROXY_IP" tcp dport "$APP_PORT" accept > /dev/null
 
-
-nft add rule inet filter output oif lo accept > /dev/null
-nft add rule inet filter output ct state established,related accept > /dev/null
 nft add rule inet filter output ip daddr "$DATA_TIER" tcp dport "$DATABASE_PORT" accept > /dev/null
 nft add rule inet filter output ip daddr "$PROXY_IP" udp dport "$DNS_PORT" accept > /dev/null
 nft add rule inet filter output ip daddr "$PROXY_IP" tcp dport "$DNS_PORT" accept > /dev/null
@@ -60,19 +52,12 @@ nft add rule inet filter input ip saddr "$APP_TIER" tcp dport "$DATABASE_PORT" a
 nft add rule inet filter input ip saddr "$PROXY_IP" tcp dport "$DNS_PORT" accept > /dev/null
 nft add rule inet filter input ip saddr "$PROXY_IP" udp dport "$DNS_PORT" accept > /dev/null
 
-nft add chain inet filter output '{ type filter hook output priority 0; policy drop; }' > /dev/null
-nft add rule inet filter output oif lo accept > /dev/null
-nft add rule inet filter output ct state established,related accept > /dev/null
 nft add rule inet filter output ip daddr "$PROXY_IP" udp dport "$DNS_PORT" accept > /dev/null
 nft add rule inet filter output ip daddr "$PROXY_IP" tcp dport "$DNS_PORT" accept > /dev/null
 }
 mgmt_fw(){
 log_info "Adding firewall rules to the management bastion..."
-nft add chain inet filter output '{ type filter hook output priority 0; policy drop; }' > /dev/null
-
 nft add rule inet filter input iifname "$HOST_IF" tcp dport "$SSH_PORT" accept
-nft add rule inet filter output oif lo accept
-nft add rule inet filter output ct state established,related accept
 nft add rule inet filter output oifname "$FLEET_IF" tcp dport "$SSH_PORT" accept
 nft add rule inet filter output oifname "$HOST_IF" tcp dport "$SSH_PORT" accept
 nft add rule inet filter output oifname "$HOST_IF" tcp dport { "$HTTP_PORT", "$HTTPS_PORT" } accept
@@ -88,6 +73,11 @@ nft add rule inet filter input ct state established,related accept > /dev/null
 nft add rule inet filter input iif "lo" accept > /dev/null
 nft add rule inet filter input ip protocol icmp accept > /dev/null
 nft add rule inet filter input ip6 nexthdr icmpv6 accept > /dev/null
+nft add chain inet filter output '{ type filter hook output priority 0; policy drop; }' > /dev/null
+nft add rule inet filter output oif lo accept > /dev/null
+nft add rule inet filter output ct state established,related accept > /dev/null
+nft add rule inet filter output ip protocol icmp accept > /dev/null
+nft add rule inet filter output ip6 nexthdr icmpv6 accept > /dev/null
 
 
 if [[ $(hostname | grep -i "proxy") ]]; then
