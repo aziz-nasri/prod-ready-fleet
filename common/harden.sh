@@ -51,6 +51,12 @@ sudo rm -f /etc/resolv.conf
 sudo bash -c 'echo "nameserver 10.0.20.1" > /etc/resolv.conf'
 log_info "resolver disabled."
 
+# Disabling IPv6
+log_info "Disabling IPv6..."
+echo 'net.ipv6.conf.all.disable_ipv6 = 1' | sudo tee -a /etc/sysctl.d/99-disable-ipv6.conf
+echo 'net.ipv6.conf.default.disable_ipv6 = 1' | sudo tee -a /etc/sysctl.d/99-disable-ipv6.conf
+sudo sysctl --system
+
 # System upadte
 log_info "Setting up automatic system update..."
 pkg_install unattended-upgrades
