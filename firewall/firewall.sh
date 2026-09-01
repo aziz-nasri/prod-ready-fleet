@@ -13,6 +13,7 @@ nft add chain inet filter forward '{ type filter hook forward priority 0; policy
 
 nft add rule inet filter output oifname "$NAT_IF" udp dport "$DNS_PORT" accept > /dev/null
 nft add rule inet filter output oifname "$NAT_IF" tcp dport "$DNS_PORT" accept > /dev/null
+nft add rule inet filter output oifname "$NAT_IF" tcp dport { "$HTTP_PORT", "$HTTPS_PORT" } accept > /dev/null
 nft add rule inet filter output oifname "$INT_IF" udp dport "$DNS_PORT" accept > /dev/null
 nft add rule inet filter output oifname "$INT_IF" tcp dport "$DNS_PORT" accept > /dev/null
 nft add rule inet filter output oifname "$INT_IF" tcp dport "$APP_PORT" accept > /dev/null
@@ -23,7 +24,6 @@ nft add rule inet filter input iifname "$INT_IF" ip saddr "$MGMT_NET" tcp dport 
 nft add rule inet filter input iifname "$NAT_IF" tcp dport { "$HTTP_PORT", "$HTTPS_PORT" } accept > /dev/null
 nft add rule inet filter input iifname "$INT_IF" ip saddr "$INT_NET" udp dport "$DNS_PORT" accept > /dev/null
 nft add rule inet filter input iifname "$INT_IF" ip saddr "$INT_NET" tcp dport "$DNS_PORT" accept > /dev/null
-nft add rule inet filter input iifname "$INT_IF" ip saddr "$APP_TIER" tcp dport  { "$HTTP_PORT", "$HTTPS_PORT" } accept > /dev/null
 
 nft add rule inet filter forward ct state established,related accept > /dev/null
 nft add rule inet filter forward iifname "$INT_IF" oifname "$NAT_IF" ip saddr "$INT_NET" tcp dport { "$HTTP_PORT", "$HTTPS_PORT" } accept > /dev/null
@@ -44,7 +44,7 @@ nft add rule inet filter output ip daddr "$INT_NET" icmp type echo-request accep
 nft add rule inet filter output ip daddr "$DATA_TIER" tcp dport "$DATABASE_PORT" accept > /dev/null
 nft add rule inet filter output ip daddr "$PROXY_IP" udp dport "$DNS_PORT" accept > /dev/null
 nft add rule inet filter output ip daddr "$PROXY_IP" tcp dport "$DNS_PORT" accept > /dev/null
-nft add rule inet filter output ip daddr "$PROXY_IP" tcp dport { "$HTTP_PORT", "$HTTPS_PORT" } accept > /dev/null
+sudo nft add rule inet filter output tcp dport { "$HTTP_PORT", "$HTTPS_PORT" } accept > /dev/null
 }
 
 # Database + DNS server Firewall configurations
