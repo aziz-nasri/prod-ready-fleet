@@ -38,3 +38,9 @@ roles/db/backup.env
 
 # Bootstrap log file
 lab-bootstrap.log
+
+# Network configurations files
+network/net-proxy.conf
+network/net-app.conf
+network/net-db.conf
+network/net-mgmt.conf
