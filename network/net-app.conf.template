@@ -1,0 +1,7 @@
+INTERFACES=(")
+MODES=("")
+ADDRESSES=("")
+DEFAULT_ROUTE_IFACE=""
+DEFAULT_ROUTE_VIA=""
+DNS_SERVERS=("")
+NET_FILE="" # file name not path

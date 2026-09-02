@@ -1,11 +1,3 @@
-# Network configuration
-INTERFACES=("")
-MODES=(")
-ADDRESSES=("")
-DEFAULT_ROUTE_IFACE=""
-DEFAULT_ROUTE_VIA=""
-DNS_SERVERS=("")
-NET_FILE="" # netplan file name
 TO_CLOSE_PORTS=("")
 
 # postgresql configuration

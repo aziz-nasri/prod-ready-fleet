@@ -1,8 +1,5 @@
-NATINT=""  # NAT interface
-INTINT=""  # internal network interface
-MNG_IP="" # bastion IP address
-ADDRESSES="" # IP address for the netplan config
-DMZ_SUB="" # the DMZ subnet
-INT_SUB="" # the internal subnet
-NETCFG="" # netplan config file name
-TO_BE_ClOSED_PORTS=("") # ports to be closed
+MNG_IP=""
+PROXY_IP=""
+APP_IP=""
+DB_IP=""
+TO_ClOSE_PORTS=("")
