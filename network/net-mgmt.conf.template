@@ -1,0 +1,7 @@
+NATINT="" # NAT interface
+INTINT=""  # fleet facing interface
+ADDRESSES=""
+DMZ_SUB=""
+INT_SUB=""
+MNG_IP=""
+NETPLAN_FILE="" # absolute path
