@@ -68,6 +68,8 @@ nft add rule inet filter input iifname "$HOST_IF" tcp dport "$SSH_PORT" accept >
 nft add rule inet filter input iifname "$FLEET_IF" ip saddr "$INT_NET" icmp type echo-request accept > /dev/null
 
 nft add rule inet filter output ip daddr "$INT_NET" icmp type echo-request accept > /dev/null
+nft add rule inet filter output oifname "$HOST_IF" tcp dport "$SSH_PORT" accept > /dev/null
+nft add rule inet filter output oifname "$HOST_IF" tcp dport "$DNS_PORT" accept > /dev/null
 nft add rule inet filter output oifname "$FLEET_IF" tcp dport "$SSH_PORT" accept > /dev/null
 nft add rule inet filter output oifname "$FLEET_IF" ip daddr "$DMZ_LEG" tcp dport { "$HTTP_PORT", "$HTTPS_PORT" } accept > /dev/null
 }
