@@ -1,6 +1,6 @@
 ## Network Diagram:
 
-![Screen preview](./fleet_network_diagram_v3_bastion.svg)
+![Screen preview](./fleet_network_diagram_v4_final_simplified.svg)
 
 - this design follows simple rule: nothing should be reachable only if it strictly need to be. so if a server is compromised the "blast radius" is small. unlike a flat design where everything could be exposed.
 
