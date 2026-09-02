@@ -119,34 +119,39 @@ sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -addext "subjectAltName=IP:${PROXY_IP}"
 
 # Secure the private key
-sudo chmod 600 /etc/nginx/ssl/private/myapp.key
-sudo chmod 644 /etc/nginx/ssl/certs/myapp.crt
-sudo chown $SUDO_USER:$SUDO_USER /etc/nginx/ssl/private/myapp.key /etc/nginx/ssl/certs/myapp.crt
 
+# making the cert and the key reachable for the working process
+sudo chown root:www-data /etc/nginx/ssl/certs/myapp.crt
+sudo chmod 644 /etc/nginx/ssl/certs/myapp.crt
+sudo chown root:www-data /etc/nginx/ssl/private/myapp.key
+sudo chmod 640 /etc/nginx/ssl/private/myapp.key
+sudo chmod 750 /etc/nginx/ssl/private/
+sudo chown root:www-data /etc/nginx/ssl/private/
 
 sudo tee /etc/nginx/sites-available/myapp << EOF
 # Redirect HTTP to HTTPS
 server {
     listen 80;
     listen [::]:80;
-    server_name ${PROXY_IP}; 
+    server_name _;
     return 301 https://\$host\$request_uri;
 }
 
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name ${PROXY_IP} localhost;
+    listen 443 ssl http2 default_server;
+    listen [::]:443 ssl http2 default_server;
+    server_name ${PROXY_DMZ_IP} proxy.lab.internal localhost 127.0.0.1 _;
+
     ssl_certificate     /etc/nginx/ssl/certs/myapp.crt;
     ssl_certificate_key /etc/nginx/ssl/private/myapp.key;
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers on;
-    # ----- Security headers -----
+
     add_header X-Frame-Options DENY;
     add_header X-Content-Type-Options nosniff;
     add_header X-XSS-Protection "1; mode=block";
     add_header Referrer-Policy strict-origin-when-cross-origin;
-    # ----- Reverse proxy to App server -----
+
     location / {
         proxy_pass http://${APP_DOMAIN}:${APP_PORT};
         proxy_http_version 1.1;
@@ -155,25 +160,15 @@ server {
         proxy_set_header X-Forwarded-For   \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_set_header Connection        "";
-        # Timeouts
         proxy_connect_timeout 60s;
         proxy_send_timeout    60s;
         proxy_read_timeout    60s;
     }
-    # health check endpoint (if your app has /health)
+
     location /health {
-        proxy_pass http://${APP_IP}:${APP_PORT}/health;
+        proxy_pass http://${APP_DOMAIN}:${APP_PORT}/health;
         access_log off;
     }
-}
-
-server {
-    listen 443 ssl default_server;
-    server_name _;
-    ssl_certificate     /etc/nginx/ssl/certs/myapp.crt;
-    ssl_certificate_key /etc/nginx/ssl/private/myapp.key;
-    ssl_protocols       TLSv1.2 TLSv1.3;
-    return 444;   # drop connections with no matching/unexpected Host header
 }
 EOF
 
@@ -181,6 +176,7 @@ sudo ln -sf /etc/nginx/sites-available/myapp /etc/nginx/sites-enabled/myapp > /d
 sudo nginx -t || { sudo rm -f "/etc/nginx/sites-available/myapp" "/etc/nginx/sites-enabled/myapp" > /dev/null; die "nginx syntax test failed.configuration: (/etc/nginx/sites-enabled/myapp)"; }
 sudo rm -f /etc/nginx/sites-enabled/default > /dev/null
 fi
+
 
 # adding the server tokens off and the rate limiter in nginx.conf
 log_info "Configuring nginx.conf (server tokens off and the rate limiter)..."
@@ -198,6 +194,7 @@ fi
 sudo nginx -t || { sudo rm -f "/etc/nginx/conf.d/security.conf" > /dev/null; die "nginx syntax test failed. configuration: (/etc/nginx/conf.d/security.conf)"; }
 log_info "nginx.conf configured successfully."
 
+sudo systemctl daemon-reload > /dev/null
 sudo systemctl restart nginx > /dev/null
 log_info "nginx configured successfully"
 
