@@ -65,8 +65,8 @@ fi
 # setting up Postgresql
  # installig the package
 # sudo apt-get update > /dev/null
-# pkg_install postgresql
-# pkg_install postgresql-contrib
+pkg_install postgresql
+pkg_install postgresql-contrib
 log_info "postgresql installed."
 
 log_info "configuring postgresql..."
