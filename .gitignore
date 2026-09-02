@@ -35,3 +35,6 @@ test/db.conf
 
 # backup service environment file
 roles/db/backup.env
+
+# Bootstrap log file
+lab-bootstrap.log
