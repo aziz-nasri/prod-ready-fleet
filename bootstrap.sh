@@ -37,19 +37,19 @@ log_info "===== Starting bootstrap for role: $ROLE ====="
 
 # --- Step 1: Baseline hardening (all roles) ---
 log_info "Step 1/4: Applying baseline hardening"
-"$SCRIPT_DIR/common/harden.sh"
+"$SCRIPT_DIR/sync-and-run.sh" common/harden.sh
 
 # --- Step 2: Role-specific install ---
 log_info "Step 2/4: Running role-specific install (roles/$ROLE/install.sh)"
 ROLE_INSTALL="$SCRIPT_DIR/roles/${ROLE}/install.sh"
 [[ -x "$ROLE_INSTALL" ]] || die "Missing or non-executable: $ROLE_INSTALL"
-"$ROLE_INSTALL"
+"$SCRIPT_DIR/sync-and-run.sh" "$ROLE_INSTALL"
 
 # --- Step 3: Firewall rules ---
 log_info "Step 3/4: Applying firewall rules"
 FIREWALL_CONFIG="$SCRIPT_DIR/firewall/firewall.conf"
 [[ -f "$FIREWALL_CONFIG" ]] || die "Missing firewall config: $FIREWALL_CONFIG"
-"$SCRIPT_DIR/firewall/firewall.sh"
+"$SCRIPT_DIR/sync-and-run.sh" firewall/firewall.sh
 log_info "Firewall rules applied and persisted"
 
 
@@ -58,11 +58,11 @@ log_info "Firewall rules applied and persisted"
 log_info "Step 4/4: Running post-install smoke test"
 TEST_CONFIG="$SCRIPT_DIR/test/${ROLE}.conf"
 if [[ -f "$TEST_CONFIG" ]]; then
-  "$SCRIPT_DIR/test/smoke-test.sh" "$HEALTH_CONFIG" > $LOG_FILE   
+  "$SCRIPT_DIR/sync-and-run.sh" test/smoke-test.sh "$TEST_CONFIG" > $LOG_FILE
+  log_info "post-install smoke test finished check the log file: ${LOG_FILE}" 
 else
   log_warn "No ${ROLE}.conf found in the test directory for role $ROLE, skipping Smoke test."
 fi
-log_info "post-install smoke test finished check the log file: ${LOG_FILE}"
 
 log_info "===== Bootstrap complete for role: $ROLE ====="
 log_info "Log file: $LOG_FILE"
